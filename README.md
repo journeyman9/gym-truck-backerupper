@@ -9,6 +9,11 @@ Agent gets rewards.
 # Installation
 
 ```bash
-cd gym-truck-backerupper
-pip3 install -e .
+>>>cd gym-truck-backerupper
+>>>pip3 install -e .
+
+Then in python script
+>>>import gym
+import gym_truck_backerupper
+env = gym.make('TruckBackerUpper-v0')
 ```
