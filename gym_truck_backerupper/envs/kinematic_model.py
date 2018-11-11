@@ -3,8 +3,7 @@ import scipy.integrate as spi
 import matplotlib.pyplot as plt
 import pdb
 
-def kinematic_model(t, x, v, L1, h, L2, u):
-    u = u
+def kinematic_model(t, x, u):
     n = len(x)
     xd = np.zeros((n, 1))
     xd[0] = (v / L1) * np.tan(u)
@@ -39,7 +38,7 @@ if __name__ == '__main__':
     
     solver = spi.ode(kinematic_model).set_integrator('dopri5')
     solver.set_initial_value(x0, t0)
-    solver.set_f_params(v, L1, h, L2, u)
+    solver.set_f_params(u)
 
     t = np.zeros((num_steps, 1))
     psi_1 = np.zeros((num_steps, 1))
@@ -61,7 +60,7 @@ if __name__ == '__main__':
     while solver.successful() and i < num_steps:
         if solver.t > 40.0:
             u = .0167
-        solver.set_f_params(v, L1, h, L2, u)
+        solver.set_f_params(u)
         solver.integrate(solver.t + dt)
         t[i] = solver.t
         psi_1[i] = solver.y[0]
