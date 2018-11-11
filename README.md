@@ -14,6 +14,6 @@ Agent gets rewards.
 
 Then in python script
 >>>import gym
-import gym_truck_backerupper
-env = gym.make('TruckBackerUpper-v0')
+>>>import gym_truck_backerupper
+>>>env = gym.make('TruckBackerUpper-v0')
 ```
