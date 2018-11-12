@@ -22,6 +22,14 @@ class DubinsPark:
 
         return 4 * triangle_area / (self.distance(a, b) 
                * self.distance(b, c) * self.distance(c, a))
+    
+    def safe_minus(self, r, c):
+        if abs(r-c) <= np.pi:
+            error = r - c
+        else:
+            error = r - c - 2 * np.pi * np.sign(r - c)
+
+        return error
 
     def generate(self, q0, qg):
         self.q0 = q0

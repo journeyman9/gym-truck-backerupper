@@ -6,8 +6,11 @@ from gym import utils
 from gym.utils import seeding
 import scipy.integrate as spi
 import dubins
-from gym_truck_backerupper.envs.kinematic_model import kinematic_model
+#from gym_truck_backerupper.envs.kinematic_model import kinematic_model
 from gym_truck_backerupper.envs.DubinsPark import DubinsPark
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import pdb
 
 try:
     import dubins
@@ -31,8 +34,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.max_psi_1 = np.radians(360)
         self.max_psi_2 = np.radians(360)
         
-        self.max_hitch = 90
-        self.max_steer = 45
+        self.max_hitch = np.radians(90)
+        self.max_steer = np.radians(45)
         self.goal_position = [0, 0, 0]
 
         self.min_action = -1.0
@@ -45,7 +48,6 @@ class TruckBackerUpperEnv(gym.Env):
                                        high=self.max_action, shape=(1,))
         self.observation_space = spaces.Box(low=self.low_state,
                                             high=self.high_state)
-
 
         self.path_planner = DubinsPark(13.716, .05)
         
@@ -63,9 +65,63 @@ class TruckBackerUpperEnv(gym.Env):
         self.seed()
         self.reset() 
         
-        self.solver = spi.ode(kinematic_model).set_integrator('dopri5')
+        self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
         self.solver.set_initial_value(self.ICs, self.t0)
         self.solver.set_f_params(self.u)
+        
+        self.goal = False
+        self.jackknife = False
+
+        self.H_c = self.L2 / 3
+        self.H_t = self.L2 / 3
+        
+        #self.fig = plt.figure(linewidth=2)
+        #self.ax = self.fig.add_subplot(111)
+
+        self.fig, self.ax = plt.subplots(1, 1)
+
+        #self.ax = plt.gca()
+
+        #self.fig = plt.figure()
+        #self.ax = plt.axes(xlim=(self.x2-25, self.x2+25),
+        #                   ylim=(self.y2-25, self.y2+25))
+        #self.tractor, = self.ax.plot([], [], lw=2)
+
+
+        #self.ani = animation.FuncAnimation(self.fig, self.animate, 
+        #                                   init_func=self.init_ani,
+        #                                   frames=1, interval=1, blit=False,
+        #                                   repeat=False)
+
+        self.DCM = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
+                                         [np.sin(ang), np.cos(ang),  0],
+                                         [     0     ,      0     ,  1]])
+
+        self.center = lambda x, y: np.array([[1, 0, x],
+                                             [0, 1, y],
+                                             [0, 0, 1]])
+        self.sim_i = 1
+
+
+    def kinematic_model(self, t, x, u):
+        n = len(x)
+        xd = np.zeros((n, 1))
+        xd[0] = (self.v / self.L1) * np.tan(u)
+
+        self.theta = x[0] - x[1]
+
+        xd[1] = (self.v / self.L2) * np.sin(self.theta) -\
+                (self.h / self.L2) * xd[0] * np.cos(self.theta)
+        
+        vt = self.v * np.cos(self.theta) + self.h * xd[0] * np.sin(self.theta)
+
+        xd[2] = self.v * np.cos(x[0])
+        xd[3] = self.v * np.sin(x[0])
+
+        xd[4] = vt * np.cos(x[1])
+        xd[5] = vt * np.sin(x[1])
+
+        return xd
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -73,7 +129,48 @@ class TruckBackerUpperEnv(gym.Env):
 
     def step(self, a):
         ''' '''
-        #return obs, reward, done, info
+        done = False
+        self.solver.set_f_params(a)
+        self.solver.integrate(self.solver.t + self.dt)
+
+        self.t = self.solver.t
+        self.psi_1 = self.solver.y[0]
+        self.psi_2 = self.solver.y[1]
+        self.x1 = self.solver.y[2]
+        self.y1 = self.solver.y[3]
+        self.x2 = self.solver.y[4]
+        self.y2 = self.solver.y[5]
+
+        self.s = np.array([self.solver.y[0], self.solver.y[1], self.solver.y[2], 
+                          self.solver.y[3], self.solver.y[4], self.solver.y[5]])
+
+        if self.theta > self.max_hitch:
+            self.jackknife = True
+        elif self.theta < -self.max_hitch:
+            self.jackknife = True
+        else:
+            self.jackknife = False
+
+        self.d_goal =  self.path_planner.distance(self.s[4:6], self.qg[0:2])
+        self.psi_goal = self.path_planner.safe_minus(self.s[1], self.qg[2])
+        self.goal = bool(self.d_goal <= 0.15 and self.psi_goal <= 0.1)
+
+        if self.goal or self.jackknife or self.sim_i >= self.num_steps:
+            done = True
+
+        r = 0
+        if self.goal:
+            r += 100
+        elif self.jackknife:
+            r -= 10
+        elif self.sim_i >= self.num_steps:
+            r -= 10
+        else:
+            r -= 1
+
+        self.sim_i += 1
+
+        return self.s, r, done, {}
 
     def reset(self):
         ''' '''
@@ -111,16 +208,61 @@ class TruckBackerUpperEnv(gym.Env):
                           self.h*np.cos(self.psi_1_IC),
                           self.trailerIC[1] + self.L2*np.sin(self.psi_2_IC) + 
                           self.h*np.sin(self.psi_1_IC)]
-        self.ICs = [self.psi_1_IC, self.psi_2_IC, self.y_IC, self.curv_IC]
+        self.ICs = [self.psi_1_IC, self.psi_2_IC,
+                    self.tractorIC[0], self.tractorIC[1],
+                    self.trailerIC[0], self.trailerIC[1]]
 
-        self.state = np.array(self.ICs.copy())
-        return np.array(self.state)
+        self.psi_1 = self.psi_1_IC.copy()
+        self.psi_2 = self.psi_2_IC.copy()
+        self.x1 = self.tractorIC[0].copy()
+        self.y1 = self.tractorIC[1].copy()
+        self.x2 = self.trailerIC[0].copy()
+        self.y2 = self.trailerIC[1].copy()
 
-    def render(self, mode='human', close=False):
+        self.s = np.array(self.ICs.copy())
+        return np.array(self.s)
+
+    def init_ani(self):
         ''' '''
+        self.tractor.set_data([], [])
+        return (self.tractor,)
+
+    def animate(self, frame):
+        ''' '''
+        x_trac = [self.x1+self.L1, self.x1, self.x1, self.x1+self.L1, 
+                  self.x1+self.L1]
+        y_trac = [self.y1+self.H_c/2, self.y1+self.H_c/2, 
+                  self.y1-self.H_c/2, self.y1-self.H_c/2, 
+                  self.y1+self.H_c/2]
+
+        corners_trac = np.zeros((5, 3))
+        for j in range(len(x_trac)):
+            corners_trac[j, 0:3] = self.center(self.x1, self.y1).dot(
+                                   self.DCM(self.psi_2)).dot(
+                                   self.center(-self.x1, -self.y1)).dot(
+                                   np.array([x_trac[j], y_trac[j], 1]).T)
+        self.tractor.set_data(corners_trac[:, 0], corners_trac[:, 1])
+        return (self.tractor,)
+
+    def render(self, mode='human'):
+        ''' '''
+        x_trac = [self.x1+self.L1, self.x1, self.x1, self.x1+self.L1, 
+                  self.x1+self.L1]
+        y_trac = [self.y1+self.H_c/2, self.y1+self.H_c/2, 
+                  self.y1-self.H_c/2, self.y1-self.H_c/2, 
+                  self.y1+self.H_c/2]
+
+        corners_trac = np.zeros((5, 3))
+        for j in range(len(x_trac)):
+            corners_trac[j, 0:3] = self.center(self.x1, self.y1).dot(
+                                   self.DCM(self.psi_2)).dot(
+                                   self.center(-self.x1, -self.y1)).dot(
+                                   np.array([x_trac[j], y_trac[j], 1]).T)
+        self.ax.clear()
+        self.ax.plot(corners_trac[:, 0], corners_trac[:, 1])
+        self.ax.set_xlim(self.x2-25, self.x2+25)
+        self.ax.set_ylim(self.y2-25, self.y2+25)
+        plt.pause(0.001)
 
     def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
-
+        plt.close()

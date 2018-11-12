@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.integrate as spi
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import pdb
 
 def kinematic_model(t, x, u):
@@ -21,6 +22,20 @@ def kinematic_model(t, x, u):
     xd[5] = vt * np.sin(x[1])
 
     return xd
+
+def init():
+    ''' '''
+    tractor.set_data([], [])
+    return tractor,
+
+
+def animate(i):
+    ''' '''
+    H_c = L2 / 3.0
+    x_trac = [x1[i]+L1, x1[i], x1[i], x1[i]+L1, x1[i]+L1]
+    y_trac = [y1[i]+H_c/2, y1[i]+H_c/2, y1[i]-H_c/2, y1[i]-H_c/2, y1[i]+H_c/2]
+    tractor.set_data(x_trac, y_trac)
+    return tractor,
 
 if __name__ == '__main__':
     t0 = 0.0
@@ -70,12 +85,12 @@ if __name__ == '__main__':
         x2[i] = solver.y[4]
         y2[i] = solver.y[5]
         i += 1
-
+    '''
     ax1 = plt.subplot(311)
     ax1.plot(t, np.degrees(psi_1))
     ax1.set_ylabel(r'$\psi_{1} [\degree]$')
 
-    ax2 = plt.subplot(312)
+    ax2 = plt.subplot(312
     ax2.plot(t, np.degrees(psi_2))
     ax2.set_ylabel(r'$\psi_{2} [\degree]$')
 
@@ -90,4 +105,12 @@ if __name__ == '__main__':
     plt.xlabel('X [m]')
     plt.ylabel('Y [m]')
     plt.axis('equal')
+    plt.show()'''
+
+    fig = plt.figure()
+    ax = plt.axes(xlim=(-25, 25), ylim=(-25, 25))
+    tractor, = ax.plot([], [], lw=2)
+
+    anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_steps,
+                                   interval=1, blit=True, repeat=False)
     plt.show()
