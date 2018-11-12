@@ -23,18 +23,9 @@ class DubinsPark:
         return 4 * triangle_area / (self.distance(a, b) 
                * self.distance(b, c) * self.distance(c, a))
 
-    def generate(self):
-        ## Randomize starting and goal poses
-        x0 = np.random.randint(-200, 200)
-        y0 = np.random.randint(-200, 200)
-        psi_0 = np.radians(np.random.randint(0, 360))
-
-        x1 = np.random.randint(-200, 200)
-        y1 = np.random.randint(-200, 200)
-        psi_1 = np.radians(np.random.randint(0, 360))
-
-        self.q0 = [x0, y0, psi_0]
-        self.qg = [x1, y1, psi_1]
+    def generate(self, q0, qg):
+        self.q0 = q0
+        self.qg = qg
 
         ## Modify dubins to work for a straight offset from goal
         self.q1 = self.qg.copy()
@@ -72,6 +63,8 @@ class DubinsPark:
         self.x = qs[:, 0]
         self.y = qs[:, 1]
         self.psi = qs[:, 2]
+        return np.column_stack([self.x, self.y, self.curv, self.psi, 
+                        self.dist])
 
     def display(self, plot_number=None):
         ## Plot again to make sure
@@ -92,3 +85,17 @@ class DubinsPark:
                 file.write(str(self.x[i]) + ',' + str(self.y[i]) + ',' + 
                            str(self.curv[i]) + ',' + str(self.psi[i]) + ',' + 
                            str(self.dist[i]) + '\n')
+
+if __name__ == '__main__':
+    q0 = [200, 200, 3.14]
+    qg = [0, 0, 3.14]
+    path_planner = DubinsPark(13.716, .05)
+    track_vector = path_planner.generate(q0, qg)
+    #path_planner.display()
+    #for track in track_vector:
+    #    print(track)
+    
+    #plt.plot(track_vector[:, 0], track_vector[:, 1])
+    #plt.show()
+    print(track_vector.shape)
+
