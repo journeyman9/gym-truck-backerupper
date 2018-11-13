@@ -8,6 +8,7 @@ import scipy.integrate as spi
 import dubins
 from gym_truck_backerupper.envs.DubinsPark import DubinsPark
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import pdb
 import time
 
@@ -18,8 +19,7 @@ except ImportError as e:
         "{}. (HINT: you can install Dubins by running 'pip3 install Dubins')".format(e))
 
 class TruckBackerUpperEnv(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array'],
-                'video.frames_per_second': 30}
+    metadata = {'render.modes': ['human', 'rgb_array']}
 
     def __init__(self):
         ''' '''
@@ -74,20 +74,14 @@ class TruckBackerUpperEnv(gym.Env):
         self.H_c = self.L2 / 3
         self.H_t = self.L2 / 3
         
-        #self.fig = plt.figure(linewidth=2)
-        #self.ax = self.fig.add_subplot(111)
-
-        #self.fig, self.ax = plt.subplots(1, 1)
-        
-        
-        self.fig = plt.figure()
-        self.ax = plt.axes(xlim=(self.x2-25, self.x2+25),
-                           ylim=(self.y2-25, self.y2+25))
+        self.fig, self.ax = plt.subplots(1, 1)
         self.tractor, = self.ax.plot([], [], lw=2)
-
-        self.ani = animation.FuncAnimation(self.fig, self.animate,
-                                           frames=1, blit=False,
-                                           repeat=False)
+        
+        self.anim = animation.FuncAnimation(self.fig, self.animate,
+                                            init_func=self.init_anim,
+                                            frames=range(self.num_steps), 
+                                            blit=False,
+                                            repeat=False)
 
         self.DCM = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                          [np.sin(ang), np.cos(ang),  0],
@@ -218,12 +212,12 @@ class TruckBackerUpperEnv(gym.Env):
         self.s = np.array(self.ICs.copy())
         return np.array(self.s)
 
-    def init_ani(self):
+    def init_anim(self):
         ''' '''
         self.tractor.set_data([], [])
-        return (self.tractor,)
+        return self.tractor,
 
-    def animate(self, frame):
+    def animate(self, f):
         ''' '''
         x_trac = [self.x1+self.L1, self.x1, self.x1, self.x1+self.L1, 
                   self.x1+self.L1]
@@ -238,31 +232,14 @@ class TruckBackerUpperEnv(gym.Env):
                                    self.center(-self.x1, -self.y1)).dot(
                                    np.array([x_trac[j], y_trac[j], 1]).T)
         self.tractor.set_data(corners_trac[:, 0], corners_trac[:, 1])
-        return (self.tractor,)
+        #self.tractor.set_data(x_trac, y_trac)
+        self.ax.set_xlim(self.x2-25, self.x2+25)
+        self.ax.set_ylim(self.y2-25, self.y2+25)
+        return self.tractor,
 
     def render(self, mode='human'):
         ''' '''
-        '''
-        x_trac = [self.x1+self.L1, self.x1, self.x1, self.x1+self.L1, 
-                  self.x1+self.L1]
-        y_trac = [self.y1+self.H_c/2, self.y1+self.H_c/2, 
-                  self.y1-self.H_c/2, self.y1-self.H_c/2, 
-                  self.y1+self.H_c/2]
-
-        corners_trac = np.zeros((5, 3))
-        for j in range(len(x_trac)):
-            corners_trac[j, 0:3] = self.center(self.x1, self.y1).dot(
-                                   self.DCM(self.psi_2)).dot(
-                                   self.center(-self.x1, -self.y1)).dot(
-                                   np.array([x_trac[j], y_trac[j], 1]).T)
-        self.ax.clear()
-        self.ax.plot(corners_trac[:, 0], corners_trac[:, 1])
-        self.ax.set_xlim(self.x2-25, self.x2+25)
-        self.ax.set_ylim(self.y2-25, self.y2+25)
-        #self.fig.canvas.draw() #optional
-        plt.pause(0.001)'''
-        plt.show()
-
+        plt.pause(np.finfo(np.float32).eps)
 
     def close(self):
         plt.close()

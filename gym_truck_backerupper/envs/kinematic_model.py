@@ -35,15 +35,15 @@ def animate(i):
     H_c = L2 / 3.0
     x_trac = [x1[i]+L1, x1[i], x1[i], x1[i]+L1, x1[i]+L1]
     y_trac = [y1[i]+H_c/2, y1[i]+H_c/2, y1[i]-H_c/2, y1[i]-H_c/2, y1[i]+H_c/2]
-    #tractor.set_data(x_trac[:i], y_trac[:i])
-    #ax.set_xlim(x2[i]-25, x2[i]+25)
-    #ax.set_ylim(y2[i]-25, y2[i]+25)
-
-
-    ax.clear()
-    ax.plot(x_trac, y_trac)
+    tractor.set_data(x_trac[:i], y_trac[:i])
     ax.set_xlim(x2[i]-25, x2[i]+25)
     ax.set_ylim(y2[i]-25, y2[i]+25)
+
+
+    #ax.clear()
+    #ax.plot(x_trac, y_trac)
+    #ax.set_xlim(x2[i]-25, x2[i]+25)
+    #ax.set_ylim(y2[i]-25, y2[i]+25)
     return tractor,
 
 def manual_ani():
