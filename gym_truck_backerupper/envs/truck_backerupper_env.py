@@ -35,7 +35,6 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.max_hitch = np.radians(90)
         self.max_steer = np.radians(45)
-        self.goal_position = [0, 0, 0]
 
         self.min_action = -1.0
         self.max_action = 1.0
@@ -52,7 +51,7 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.t0 = 0.0
         self.t_final = 80.0
-        self.dt = .001
+        self.dt = .033
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         
         self.L1 = 5.7336
@@ -75,7 +74,12 @@ class TruckBackerUpperEnv(gym.Env):
         self.H_t = self.L2 / 3
         
         self.fig, self.ax = plt.subplots(1, 1)
-        self.tractor, = self.ax.plot([], [], lw=2)
+
+        plotcols = ["green", "blue"]
+        self.lines = []
+        for index in range(2):
+            lobj = self.ax.plot([], [], lw=2, color=plotcols[index])[0]
+            self.lines.append(lobj)
         
         self.anim = animation.FuncAnimation(self.fig, self.animate,
                                             init_func=self.init_anim,
@@ -91,7 +95,6 @@ class TruckBackerUpperEnv(gym.Env):
                                              [0, 1, y],
                                              [0, 0, 1]])
         self.sim_i = 1
-
 
     def kinematic_model(self, t, x, u):
         n = len(x)
@@ -123,13 +126,13 @@ class TruckBackerUpperEnv(gym.Env):
         self.solver.set_f_params(a)
         self.solver.integrate(self.solver.t + self.dt)
 
-        self.t = self.solver.t
-        self.psi_1 = self.solver.y[0]
-        self.psi_2 = self.solver.y[1]
-        self.x1 = self.solver.y[2]
-        self.y1 = self.solver.y[3]
-        self.x2 = self.solver.y[4]
-        self.y2 = self.solver.y[5]
+        self.t[self.sim_i] = self.solver.t
+        self.psi_1[self.sim_i] = self.solver.y[0]
+        self.psi_2[self.sim_i] = self.solver.y[1]
+        self.x1[self.sim_i] = self.solver.y[2]
+        self.y1[self.sim_i] = self.solver.y[3]
+        self.x2[self.sim_i] = self.solver.y[4]
+        self.y2[self.sim_i] = self.solver.y[5]
 
         self.s = np.array([self.solver.y[0], self.solver.y[1], self.solver.y[2], 
                           self.solver.y[3], self.solver.y[4], self.solver.y[5]])
@@ -145,7 +148,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.psi_goal = self.path_planner.safe_minus(self.s[1], self.qg[2])
         self.goal = bool(self.d_goal <= 0.15 and self.psi_goal <= 0.1)
 
-        if self.goal or self.jackknife or self.sim_i >= self.num_steps:
+        if self.goal or self.jackknife or self.sim_i >= self.num_steps-1:
             done = True
 
         r = 0
@@ -202,40 +205,68 @@ class TruckBackerUpperEnv(gym.Env):
                     self.tractorIC[0], self.tractorIC[1],
                     self.trailerIC[0], self.trailerIC[1]]
 
-        self.psi_1 = self.psi_1_IC.copy()
-        self.psi_2 = self.psi_2_IC.copy()
-        self.x1 = self.tractorIC[0].copy()
-        self.y1 = self.tractorIC[1].copy()
-        self.x2 = self.trailerIC[0].copy()
-        self.y2 = self.trailerIC[1].copy()
+        self.t = np.zeros((self.num_steps, 1))
+        self.psi_1 = np.zeros((self.num_steps, 1))
+        self.psi_2 = np.zeros((self.num_steps, 1))
+        self.x1 = np.zeros((self.num_steps, 1))
+        self.y1 = np.zeros((self.num_steps, 1))
+        self.x2 = np.zeros((self.num_steps, 1))
+        self.y2 = np.zeros((self.num_steps, 1))
+        
+        self.psi_1[0] = self.psi_1_IC.copy()
+        self.psi_2[0] = self.psi_2_IC.copy()
+        self.x1[0] = self.tractorIC[0].copy()
+        self.y1[0] = self.tractorIC[1].copy()
+        self.x2[0] = self.trailerIC[0].copy()
+        self.y2[0] = self.trailerIC[1].copy()
 
         self.s = np.array(self.ICs.copy())
         return np.array(self.s)
 
     def init_anim(self):
         ''' '''
-        self.tractor.set_data([], [])
-        return self.tractor,
+        for line in self.lines:
+            line.set_data([], [])
+        return self.lines
 
     def animate(self, f):
         ''' '''
-        x_trac = [self.x1+self.L1, self.x1, self.x1, self.x1+self.L1, 
-                  self.x1+self.L1]
-        y_trac = [self.y1+self.H_c/2, self.y1+self.H_c/2, 
-                  self.y1-self.H_c/2, self.y1-self.H_c/2, 
-                  self.y1+self.H_c/2]
+        x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
+                  self.x2[f]+self.L2, self.x2[f]+self.L2]
+        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
+                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
+                  self.y2[f]+self.H_t/2]
+
+        corners_trail = np.zeros((5, 3))
+        for j in range(len(x_trail)):
+            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
+                                   self.DCM(self.psi_2[f])).dot(
+                                   self.center(-self.x2[f], -self.y2[f])).dot(
+                                   np.array([x_trail[j], y_trail[j], 1]).T)
+
+
+        x_trac = [self.x1[f]+self.L1, self.x1[f], self.x1[f], 
+                  self.x1[f]+self.L1, self.x1[f]+self.L1]
+        y_trac = [self.y1[f]+self.H_c/2, self.y1[f]+self.H_c/2, 
+                  self.y1[f]-self.H_c/2, self.y1[f]-self.H_c/2, 
+                  self.y1[f]+self.H_c/2]
 
         corners_trac = np.zeros((5, 3))
         for j in range(len(x_trac)):
-            corners_trac[j, 0:3] = self.center(self.x1, self.y1).dot(
-                                   self.DCM(self.psi_2)).dot(
-                                   self.center(-self.x1, -self.y1)).dot(
+            corners_trac[j, 0:3] = self.center(self.x1[f], self.y1[f]).dot(
+                                   self.DCM(self.psi_1[f])).dot(
+                                   self.center(-self.x1[f], -self.y1[f])).dot(
                                    np.array([x_trac[j], y_trac[j], 1]).T)
-        self.tractor.set_data(corners_trac[:, 0], corners_trac[:, 1])
-        #self.tractor.set_data(x_trac, y_trac)
-        self.ax.set_xlim(self.x2-25, self.x2+25)
-        self.ax.set_ylim(self.y2-25, self.y2+25)
-        return self.tractor,
+
+        xlist = [corners_trac[:, 0], corners_trail[:, 0]]
+        ylist = [corners_trac[:, 1], corners_trail[:, 1]]
+        
+        for lnum, line, in enumerate(self.lines):
+            line.set_data(xlist[lnum], ylist[lnum])
+
+        self.ax.set_xlim(self.x2[f]-25, self.x2[f]+25)
+        self.ax.set_ylim(self.y2[f]-25, self.y2[f]+25)
+        return self.lines
 
     def render(self, mode='human'):
         ''' '''
