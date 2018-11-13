@@ -75,12 +75,22 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.fig, self.ax = plt.subplots(1, 1)
 
-        plotcols = ["green", "blue"]
+        self.ax.set_xlim(-200, 200)
+        self.ax.set_ylim(-200, 200)
+
+        plotcols = ["blue", "green", "blue", "green"]
         self.lines = []
         for index in range(2):
-            lobj = self.ax.plot([], [], lw=2, color=plotcols[index])[0]
+            lobj = self.ax.plot([], [], ls="-", marker="", lw=2, color=plotcols[index])[0]
             self.lines.append(lobj)
-        
+
+        self.points = []
+        for index in range(4):
+            pobj = self.ax.plot([], [], ls="", marker='*', color=plotcols[index])[0]
+            self.points.append(pobj)
+
+        self.dubins_dash, = self.ax.plot([], [], ls="--", marker="", lw=1, color="red")
+ 
         self.anim = animation.FuncAnimation(self.fig, self.animate,
                                             init_func=self.init_anim,
                                             frames=range(self.num_steps), 
@@ -227,7 +237,14 @@ class TruckBackerUpperEnv(gym.Env):
         ''' '''
         for line in self.lines:
             line.set_data([], [])
-        return self.lines
+
+        for point in self.points:
+            point.set_data([], [])
+
+        '''for gps in self.dubins_dash:
+            gps.set_data([], [])'''
+        self.dubins_dash.set_data([], [])
+        return self.lines, self.points, self.dubins_dash
 
     def animate(self, f):
         ''' '''
@@ -258,15 +275,37 @@ class TruckBackerUpperEnv(gym.Env):
                                    self.center(-self.x1[f], -self.y1[f])).dot(
                                    np.array([x_trac[j], y_trac[j], 1]).T)
 
-        xlist = [corners_trac[:, 0], corners_trail[:, 0]]
-        ylist = [corners_trac[:, 1], corners_trail[:, 1]]
+
+        xlist = [corners_trail[:, 0], corners_trac[:, 0],
+                 self.x2[f], self.x1[f]]
+        ylist = [corners_trail[:, 1], corners_trac[:, 1], 
+                self.y2[f], self.y1[f]]
         
         for lnum, line, in enumerate(self.lines):
             line.set_data(xlist[lnum], ylist[lnum])
 
-        self.ax.set_xlim(self.x2[f]-25, self.x2[f]+25)
-        self.ax.set_ylim(self.y2[f]-25, self.y2[f]+25)
-        return self.lines
+        hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
+                     self.DCM(self.psi_1[f])).dot(
+                     self.center(-self.x1[f], -self.y1[f])).dot(
+                     np.array([self.x1[f]-self.h, self.y1[f], 1]).T)
+
+
+        hitch_trail = self.center(self.x2[f], self.y2[f]).dot(
+                      self.DCM(self.psi_2[f])).dot(
+                      self.center(-self.x2[f], -self.y2[f])).dot(
+                      np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
+        
+        xlist = [self.x2[f], self.x1[f], hitch_trail[0], hitch_trac[0]]
+        ylist = [self.y2[f], self.y1[f], hitch_trail[1], hitch_trac[1]]
+
+        for pnum, point in enumerate(self.points):
+            point.set_data(xlist[pnum], ylist[pnum])
+
+        self.dubins_dash.set_data(self.track_vector[:, 0], self.track_vector[:, 1])
+
+        #self.ax.set_xlim(self.x2[f]-25, self.x2[f]+25)
+        #self.ax.set_ylim(self.y2[f]-25, self.y2[f]+25)
+        return self.lines, self.points, self.dubins_dash
 
     def render(self, mode='human'):
         ''' '''
