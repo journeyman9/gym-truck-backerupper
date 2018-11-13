@@ -6,11 +6,10 @@ from gym import utils
 from gym.utils import seeding
 import scipy.integrate as spi
 import dubins
-#from gym_truck_backerupper.envs.kinematic_model import kinematic_model
 from gym_truck_backerupper.envs.DubinsPark import DubinsPark
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import pdb
+import time
 
 try:
     import dubins
@@ -78,20 +77,17 @@ class TruckBackerUpperEnv(gym.Env):
         #self.fig = plt.figure(linewidth=2)
         #self.ax = self.fig.add_subplot(111)
 
-        self.fig, self.ax = plt.subplots(1, 1)
+        #self.fig, self.ax = plt.subplots(1, 1)
+        
+        
+        self.fig = plt.figure()
+        self.ax = plt.axes(xlim=(self.x2-25, self.x2+25),
+                           ylim=(self.y2-25, self.y2+25))
+        self.tractor, = self.ax.plot([], [], lw=2)
 
-        #self.ax = plt.gca()
-
-        #self.fig = plt.figure()
-        #self.ax = plt.axes(xlim=(self.x2-25, self.x2+25),
-        #                   ylim=(self.y2-25, self.y2+25))
-        #self.tractor, = self.ax.plot([], [], lw=2)
-
-
-        #self.ani = animation.FuncAnimation(self.fig, self.animate, 
-        #                                   init_func=self.init_ani,
-        #                                   frames=1, interval=1, blit=False,
-        #                                   repeat=False)
+        self.ani = animation.FuncAnimation(self.fig, self.animate,
+                                           frames=1, blit=False,
+                                           repeat=False)
 
         self.DCM = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                          [np.sin(ang), np.cos(ang),  0],
@@ -246,6 +242,7 @@ class TruckBackerUpperEnv(gym.Env):
 
     def render(self, mode='human'):
         ''' '''
+        '''
         x_trac = [self.x1+self.L1, self.x1, self.x1, self.x1+self.L1, 
                   self.x1+self.L1]
         y_trac = [self.y1+self.H_c/2, self.y1+self.H_c/2, 
@@ -262,7 +259,10 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(corners_trac[:, 0], corners_trac[:, 1])
         self.ax.set_xlim(self.x2-25, self.x2+25)
         self.ax.set_ylim(self.y2-25, self.y2+25)
-        plt.pause(0.001)
+        #self.fig.canvas.draw() #optional
+        plt.pause(0.001)'''
+        plt.show()
+
 
     def close(self):
         plt.close()

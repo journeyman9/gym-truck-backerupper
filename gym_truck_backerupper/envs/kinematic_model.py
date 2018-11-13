@@ -2,7 +2,9 @@ import numpy as np
 import scipy.integrate as spi
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from drawnow import drawnow
 import pdb
+import time
 
 def kinematic_model(t, x, u):
     n = len(x)
@@ -28,14 +30,40 @@ def init():
     tractor.set_data([], [])
     return tractor,
 
-
 def animate(i):
     ''' '''
     H_c = L2 / 3.0
     x_trac = [x1[i]+L1, x1[i], x1[i], x1[i]+L1, x1[i]+L1]
     y_trac = [y1[i]+H_c/2, y1[i]+H_c/2, y1[i]-H_c/2, y1[i]-H_c/2, y1[i]+H_c/2]
-    tractor.set_data(x_trac, y_trac)
+    #tractor.set_data(x_trac, y_trac)
+    ax.clear()
+    ax.plot(x_trac, y_trac)
+    ax.set_xlim(x2[i]-25, x2[i]+25)
+    ax.set_ylim(y2[i]-25, y2[i]+25)
     return tractor,
+
+def manual_ani():
+    H_c = L2 / 3.0
+    x_trac = [x1[i]+L1, x1[i], x1[i], x1[i]+L1, x1[i]+L1]
+    y_trac = [y1[i]+H_c/2, y1[i]+H_c/2, y1[i]-H_c/2, y1[i]-H_c/2, y1[i]+H_c/2]
+    ax.clear()
+    ax.plot(x_trac, y_trac)
+    ax.set_xlim(x2[i]-25, x2[i]+25)
+    ax.set_ylim(y2[i]-25, y2[i]+25)
+    plt.pause(np.finfo(np.float32).eps)
+
+def make_fig():
+    H_c = L2 / 3.0
+    x_trac = [x1[i]+L1, x1[i], x1[i], x1[i]+L1, x1[i]+L1]
+    y_trac = [y1[i]+H_c/2, y1[i]+H_c/2, y1[i]-H_c/2, y1[i]-H_c/2, y1[i]+H_c/2]
+    plt.plot(x_trac, y_trac)
+    plt.axis([x2[i]-25, x2[i]+25, y2[i]-25, y2[i]+25])
+
+def gen():
+    i = 0
+    while i <= num_steps:
+        i += 1
+        yield i-1
 
 if __name__ == '__main__':
     t0 = 0.0
@@ -107,10 +135,28 @@ if __name__ == '__main__':
     plt.axis('equal')
     plt.show()'''
 
-    fig = plt.figure()
-    ax = plt.axes(xlim=(-25, 25), ylim=(-25, 25))
+    ## Funcanimation
+    #fig = plt.figure()
+    #ax = plt.axes(xlim=(-25, 25), ylim=(-25, 25))
+    #tractor, = ax.plot([], [], lw=2)
+    
+    ## Funcanimation
+    fig, ax = plt.subplots(1, 1)
     tractor, = ax.plot([], [], lw=2)
 
-    anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_steps,
-                                   interval=1, blit=True, repeat=False)
-    plt.show()
+    anim = animation.FuncAnimation(fig, animate, init_func=init, 
+                                   frames=range(num_steps)[::25], interval=1, 
+                                   blit=False, repeat=False)
+    ## Drawnow
+    #fig = plt.figure()
+
+    ## manual ani or Drawnow
+    #fig, ax = plt.subplots(1, 1)
+    
+    for i in range(num_steps):
+        #startTime = time.time()
+        #drawnow(make_fig)
+        #manual_ani()
+        plt.pause(np.finfo(np.float32).eps)
+        #renderTime = time.time() - startTime
+        #print('{} FPS'.format(1 / renderTime))
