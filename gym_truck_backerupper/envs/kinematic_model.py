@@ -35,7 +35,11 @@ def animate(i):
     H_c = L2 / 3.0
     x_trac = [x1[i]+L1, x1[i], x1[i], x1[i]+L1, x1[i]+L1]
     y_trac = [y1[i]+H_c/2, y1[i]+H_c/2, y1[i]-H_c/2, y1[i]-H_c/2, y1[i]+H_c/2]
-    #tractor.set_data(x_trac, y_trac)
+    #tractor.set_data(x_trac[:i], y_trac[:i])
+    #ax.set_xlim(x2[i]-25, x2[i]+25)
+    #ax.set_ylim(y2[i]-25, y2[i]+25)
+
+
     ax.clear()
     ax.plot(x_trac, y_trac)
     ax.set_xlim(x2[i]-25, x2[i]+25)
@@ -134,18 +138,13 @@ if __name__ == '__main__':
     plt.ylabel('Y [m]')
     plt.axis('equal')
     plt.show()'''
-
-    ## Funcanimation
-    #fig = plt.figure()
-    #ax = plt.axes(xlim=(-25, 25), ylim=(-25, 25))
-    #tractor, = ax.plot([], [], lw=2)
-    
+ 
     ## Funcanimation
     fig, ax = plt.subplots(1, 1)
     tractor, = ax.plot([], [], lw=2)
 
     anim = animation.FuncAnimation(fig, animate, init_func=init, 
-                                   frames=range(num_steps)[::25], interval=1, 
+                                   frames=range(num_steps), 
                                    blit=False, repeat=False)
     ## Drawnow
     #fig = plt.figure()
@@ -154,9 +153,9 @@ if __name__ == '__main__':
     #fig, ax = plt.subplots(1, 1)
     
     for i in range(num_steps):
-        #startTime = time.time()
+        startTime = time.time()
         #drawnow(make_fig)
         #manual_ani()
         plt.pause(np.finfo(np.float32).eps)
-        #renderTime = time.time() - startTime
-        #print('{} FPS'.format(1 / renderTime))
+        renderTime = time.time() - startTime
+        print('{} FPS'.format(1 / renderTime))
