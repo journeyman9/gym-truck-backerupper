@@ -75,7 +75,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.set_xlim(self.min_x-2*self.turning_radius, self.max_x+2*self.turning_radius)
         self.ax.set_ylim(self.min_y-2*self.turning_radius, self.max_y+2*self.turning_radius)
 
-        '''plotcols = ["blue", "green", "blue", "green", "red"]
+        plotcols = ["blue", "green", "blue", "green", "red"]
         self.lines = []
         for index in range(2):
             lobj = self.ax.plot([], [], ls="-", marker="", lw=2, color=plotcols[index])[0]
@@ -90,9 +90,9 @@ class TruckBackerUpperEnv(gym.Env):
  
         self.anim = animation.FuncAnimation(self.fig, self.animate,
                                             init_func=self.init_anim,
-                                            frames=None, 
-                                            Gblit=False,
-                                            repeat=False)'''
+                                            frames=range(self.num_steps), 
+                                            blit=False,
+                                            repeat=False)
 
         self.DCM = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                          [np.sin(ang), np.cos(ang),  0],
@@ -141,8 +141,6 @@ class TruckBackerUpperEnv(gym.Env):
         self.x2[self.sim_i] = self.solver.y[4]
         self.y2[self.sim_i] = self.solver.y[5]
 
-        print(self.x2[self.sim_i], self.y2[self.sim_i], self.psi_2[self.sim_i])
-
         self.s = np.array([self.solver.y[0], self.solver.y[1], self.solver.y[2], 
                           self.solver.y[3], self.solver.y[4], self.solver.y[5]])
 
@@ -169,8 +167,8 @@ class TruckBackerUpperEnv(gym.Env):
             r -= 10
         else:
             r -= 1
-        #print('step: x2: {}, y2: {}'.format(self.x2[self.sim_i], self.y2[self.sim_i]))
-        print('step: ', self.sim_i)
+        print('step: x2: {}, y2: {}'.format(self.x2[self.sim_i], self.y2[self.sim_i]))
+        #print('step: ', self.sim_i)
         self.sim_i += 1
         return self.s, r, done, {}
 
@@ -218,10 +216,6 @@ class TruckBackerUpperEnv(gym.Env):
         self.solver.set_initial_value(self.ICs, self.t0)
         self.solver.set_f_params(self.u)
 
-        print(self.q0)
-        print(self.trailerIC[0], self.trailerIC[1])
-        print(self.psi_2_IC)
-
         self.t = np.zeros((self.num_steps, 1))
         self.psi_1 = np.zeros((self.num_steps, 1))
         self.psi_2 = np.zeros((self.num_steps, 1))
@@ -241,8 +235,10 @@ class TruckBackerUpperEnv(gym.Env):
         return np.array(self.s)
 
     def gen_f(self):
-        while True:
-            yield self.sim_i
+        i = 0
+        while i <= self.sim_i:
+            i += 1
+            yield i
 
     def init_anim(self):
         ''' '''
@@ -251,7 +247,7 @@ class TruckBackerUpperEnv(gym.Env):
 
     def animate(self, f):
         ''' '''
-        print('animate: ', f)
+        #print('animate: ', f)
         x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
                   self.x2[f]+self.L2, self.x2[f]+self.L2]
         y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
@@ -300,20 +296,21 @@ class TruckBackerUpperEnv(gym.Env):
                       np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
         
         xlist = [self.x2[f], self.x1[f], hitch_trail[0], hitch_trac[0],
-                 self.track_vector[0, 0]]
+                 self.qg[0]]
         ylist = [self.y2[f], self.y1[f], hitch_trail[1], hitch_trac[1],
-                 self.track_vector[0, 1]]
+                 self.qg[1]]
 
         for pnum, point in enumerate(self.points):
             point.set_data(xlist[pnum], ylist[pnum])
 
-        #print('animate: x2: {}, y2: {}'.format(self.x2[f-1], self.y2[f-1]))
+        print('animate: x2: {}, y2: {}'.format(self.x2[f-1], self.y2[f-1]))
         #self.ax.set_xlim(self.x2[f]-25, self.x2[f]+25)
         #self.ax.set_ylim(self.y2[f]-25, self.y2[f]+25)
         return self.lines, self.points, self.dubins_dash
 
     def render(self, mode='human'):
         ''' '''
+        '''
         f = self.sim_i - 1
         x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
                   self.x2[f]+self.L2, self.x2[f]+self.L2]
@@ -364,8 +361,9 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
         self.ax.set_xlim(self.min_x-2*self.turning_radius, self.max_x+2*self.turning_radius)
         self.ax.set_ylim(self.min_y-2*self.turning_radius, self.max_y+2*self.turning_radius)
+        ''' 
         plt.pause(np.finfo(np.float32).eps)
-        print('Render: ', f)
+        #print('Render: ', f)
         #print('Render: x2: {}, y2: {}'.format(self.x2[self.sim_i-1], self.y2[self.sim_i-1]))
 
     def close(self):
