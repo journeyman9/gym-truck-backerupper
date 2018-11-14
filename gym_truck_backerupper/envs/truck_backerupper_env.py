@@ -5,7 +5,6 @@ from gym import error, spaces
 from gym import utils
 from gym.utils import seeding
 import scipy.integrate as spi
-import dubins
 from gym_truck_backerupper.envs.DubinsPark import DubinsPark
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -32,7 +31,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.min_psi_2 = np.radians(0)
         self.max_psi_1 = np.radians(360)
         self.max_psi_2 = np.radians(360)
-        
+ 
         self.max_hitch = np.radians(90)
         self.max_steer = np.radians(45)
 
@@ -52,7 +51,7 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.t0 = 0.0
         self.t_final = 80.0
-        self.dt = .028
+        self.dt = .010
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         
         self.L1 = 5.7336
@@ -60,47 +59,36 @@ class TruckBackerUpperEnv(gym.Env):
         self.h = -0.2286
         self.v = 25.0      
         self.u = 0
-        
+
+        self.last_index = 0
+        self.look_ahead = 0
+
+        self.DCM = lambda ang: np.array([[np.cos(ang), np.sin(ang),  0], 
+                                        [-np.sin(ang), np.cos(ang),  0],
+                                        [     0     ,      0     ,   1]]) 
         self.seed()
         self.reset() 
          
         self.goal = False
         self.jackknife = False
+        self.out_of_bounds = False
+        self.times_up = False
+        self.min_d = self.max_x - self.min_x
+        self.min_psi = self.max_psi_1.copy()
 
         self.H_c = self.L2 / 3
         self.H_t = self.L2 / 3
         
         self.fig, self.ax = plt.subplots(1, 1)
 
-        self.ax.set_xlim(self.min_x-2*self.turning_radius, self.max_x+2*self.turning_radius)
-        self.ax.set_ylim(self.min_y-2*self.turning_radius, self.max_y+2*self.turning_radius)
-
-        plotcols = ["blue", "green", "blue", "green", "red"]
-        self.lines = []
-        for index in range(2):
-            lobj = self.ax.plot([], [], ls="-", marker="", lw=2, color=plotcols[index])[0]
-            self.lines.append(lobj)
-
-        self.points = []
-        for index in range(5):
-            pobj = self.ax.plot([], [], ls="", marker='*', color=plotcols[index])[0]
-            self.points.append(pobj)
-
-        self.dubins_dash, = self.ax.plot([], [], ls="--", marker="", lw=1, color="red")
- 
-        self.anim = animation.FuncAnimation(self.fig, self.animate,
-                                            init_func=self.init_anim,
-                                            frames=range(self.num_steps), 
-                                            blit=False,
-                                            repeat=False)
-
-        self.DCM = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
-                                         [np.sin(ang), np.cos(ang),  0],
-                                         [     0     ,      0     ,  1]])
+        self.DCM_g = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
+                                           [np.sin(ang), np.cos(ang),  0],
+                                           [     0     ,      0     ,  1]])
 
         self.center = lambda x, y: np.array([[1, 0, x],
                                              [0, 1, y],
                                              [0, 0, 1]])
+
         self.sim_i = 1
 
     def kinematic_model(self, t, x, u):
@@ -141,23 +129,47 @@ class TruckBackerUpperEnv(gym.Env):
         self.x2[self.sim_i] = self.solver.y[4]
         self.y2[self.sim_i] = self.solver.y[5]
 
-        self.s = np.array([self.solver.y[0], self.solver.y[1], self.solver.y[2], 
-                          self.solver.y[3], self.solver.y[4], self.solver.y[5]])
-
         if self.theta > self.max_hitch:
             self.jackknife = True
+            done = True
+            print('Jackknife')
         elif self.theta < -self.max_hitch:
             self.jackknife = True
+            done = True
+            print('Jackknife')
         else:
             self.jackknife = False
 
-        self.d_goal =  self.path_planner.distance(self.s[4:6], self.qg[0:2])
-        self.psi_goal = self.path_planner.safe_minus(self.s[1], self.qg[2])
-        self.goal = bool(self.d_goal <= 0.15 and self.psi_goal <= 0.1)
-
-        if self.goal or self.jackknife or self.sim_i >= self.num_steps-1:
+        if (self.x1[self.sim_i] >= self.max_x or
+            self.x1[self.sim_i] <= self.min_x or
+            self.x2[self.sim_i] >= self.max_x or
+            self.x2[self.sim_i] <= self.min_y or
+            self.y1[self.sim_i] >= self.max_y or
+            self.y1[self.sim_i] <= self.min_y or
+            self.y2[self.sim_i] >= self.max_y or
+            self.y2[self.sim_i] <= self.min_y):
+            self.out_of_bounds = True
             done = True
 
+        d_goal =  self.path_planner.distance([self.x2[self.sim_i], 
+                                              self.y2[self.sim_i]], 
+                                              self.qg[0:2])
+        psi_goal = self.path_planner.safe_minus(self.psi_2[self.sim_i], 
+                                                self.qg[2])
+        if d_goal < self.min_d:
+            self.min_d = d_goal[0]
+            self.min_psi = psi_goal[0]
+        self.goal = bool(d_goal <= 0.15 and abs(psi_goal) <= 0.1)
+
+        if self.goal:
+            done = True
+            print('GOAL')
+
+        if self.sim_i >= self.num_steps-1:
+            self.times_up = True
+            print('Times Up')
+
+        self.s = self.get_error(self.sim_i)
         r = 0
         if self.goal:
             r += 100
@@ -167,8 +179,14 @@ class TruckBackerUpperEnv(gym.Env):
             r -= 10
         else:
             r -= 1
-        print('step: x2: {}, y2: {}'.format(self.x2[self.sim_i], self.y2[self.sim_i]))
-        #print('step: ', self.sim_i)
+         
+        if done:
+            print('d = {:.3f} m and psi = {:.3f} degrees'.format(
+                                                    self.min_d, 
+                                         np.degrees(self.min_psi)))
+            print('r = {:.3f}'.format(r))
+            plt.show()
+
         self.sim_i += 1
         return self.s, r, done, {}
 
@@ -189,6 +207,13 @@ class TruckBackerUpperEnv(gym.Env):
         self.q0 = [self.x_start, self.y_start, self.psi_start]
         self.qg = [self.x_goal, self.y_goal, self.psi_goal]
         self.track_vector = self.path_planner.generate(self.q0, self.qg)
+
+        if (max(self.track_vector[:, 0]) >= self.max_x or
+            min(self.track_vector[:, 0]) <= self.min_x or
+            max(self.track_vector[:, 1]) >= self.max_y or
+            min(self.track_vector[:, 1]) <= self.min_y):
+            print('Dubins spawned out of bounds, respawning new track')
+            self.bound_reset()
 
         if self.v < 0:
             self.track_vector[0, 3] += np.pi
@@ -231,86 +256,28 @@ class TruckBackerUpperEnv(gym.Env):
         self.x2[0] = self.trailerIC[0].copy()
         self.y2[0] = self.trailerIC[1].copy()
 
-        self.s = np.array(self.ICs.copy())
-        return np.array(self.s)
+        self.r_x2 = np.zeros((self.num_steps, 1))
+        self.r_y2 = np.zeros((self.num_steps, 1))
+        self.r_psi_2 = np.zeros((self.num_steps, 1))
+        self.r_psi_1 = np.zeros((self.num_steps, 1))
 
-    def gen_f(self):
-        i = 0
-        while i <= self.sim_i:
-            i += 1
-            yield i
+        self.psi_2_e = np.zeros((self.num_steps, 1))
+        self.psi_1_e = np.zeros((self.num_steps, 1))
+        self.x2_e = np.zeros((self.num_steps, 1))
+        self.y2_e = np.zeros((self.num_steps, 1))
 
-    def init_anim(self):
+        self.error = np.zeros((self.num_steps, 3))
+        self.curv = np.zeros((self.num_steps, 1))
+
+        self.s = self.get_error(0)
+        return self.s
+
+    def bound_reset(self):
         ''' '''
-        self.dubins_dash.set_data(self.track_vector[:, 0], self.track_vector[:, 1])
-        return self.dubins_dash
-
-    def animate(self, f):
-        ''' '''
-        #print('animate: ', f)
-        x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
-                  self.x2[f]+self.L2, self.x2[f]+self.L2]
-        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
-                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
-                  self.y2[f]+self.H_t/2]
-
-        corners_trail = np.zeros((5, 3))
-        for j in range(len(x_trail)):
-            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
-                                    self.DCM(self.psi_2[f])).dot(
-                                    self.center(-self.x2[f], -self.y2[f])).dot(
-                                    np.array([x_trail[j], y_trail[j], 1]).T)
-
-
-        x_trac = [self.x1[f]+self.L1, self.x1[f], self.x1[f], 
-                  self.x1[f]+self.L1, self.x1[f]+self.L1]
-        y_trac = [self.y1[f]+self.H_c/2, self.y1[f]+self.H_c/2, 
-                  self.y1[f]-self.H_c/2, self.y1[f]-self.H_c/2, 
-                  self.y1[f]+self.H_c/2]
-
-        corners_trac = np.zeros((5, 3))
-        for j in range(len(x_trac)):
-            corners_trac[j, 0:3] = self.center(self.x1[f], self.y1[f]).dot(
-                                   self.DCM(self.psi_1[f])).dot(
-                                   self.center(-self.x1[f], -self.y1[f])).dot(
-                                   np.array([x_trac[j], y_trac[j], 1]).T)
-
-
-        xlist = [corners_trail[:, 0], corners_trac[:, 0],
-                 self.x2[f], self.x1[f]]
-        ylist = [corners_trail[:, 1], corners_trac[:, 1], 
-                self.y2[f], self.y1[f]]
-        
-        for lnum, line, in enumerate(self.lines):
-            line.set_data(xlist[lnum], ylist[lnum])
-
-        hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
-                     self.DCM(self.psi_1[f])).dot(
-                     self.center(-self.x1[f], -self.y1[f])).dot(
-                     np.array([self.x1[f]-self.h, self.y1[f], 1]).T)
-
-
-        hitch_trail = self.center(self.x2[f], self.y2[f]).dot(
-                      self.DCM(self.psi_2[f])).dot(
-                      self.center(-self.x2[f], -self.y2[f])).dot(
-                      np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
-        
-        xlist = [self.x2[f], self.x1[f], hitch_trail[0], hitch_trac[0],
-                 self.qg[0]]
-        ylist = [self.y2[f], self.y1[f], hitch_trail[1], hitch_trac[1],
-                 self.qg[1]]
-
-        for pnum, point in enumerate(self.points):
-            point.set_data(xlist[pnum], ylist[pnum])
-
-        print('animate: x2: {}, y2: {}'.format(self.x2[f-1], self.y2[f-1]))
-        #self.ax.set_xlim(self.x2[f]-25, self.x2[f]+25)
-        #self.ax.set_ylim(self.y2[f]-25, self.y2[f]+25)
-        return self.lines, self.points, self.dubins_dash
+        self.reset()
 
     def render(self, mode='human'):
         ''' '''
-        '''
         f = self.sim_i - 1
         x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
                   self.x2[f]+self.L2, self.x2[f]+self.L2]
@@ -321,10 +288,9 @@ class TruckBackerUpperEnv(gym.Env):
         corners_trail = np.zeros((5, 3))
         for j in range(len(x_trail)):
             corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
-                                    self.DCM(self.psi_2[f])).dot(
+                                    self.DCM_g(self.psi_2[f])).dot(
                                     self.center(-self.x2[f], -self.y2[f])).dot(
                                     np.array([x_trail[j], y_trail[j], 1]).T)
-
 
         x_trac = [self.x1[f]+self.L1, self.x1[f], self.x1[f], 
                   self.x1[f]+self.L1, self.x1[f]+self.L1]
@@ -335,18 +301,18 @@ class TruckBackerUpperEnv(gym.Env):
         corners_trac = np.zeros((5, 3))
         for j in range(len(x_trac)):
             corners_trac[j, 0:3] = self.center(self.x1[f], self.y1[f]).dot(
-                                   self.DCM(self.psi_1[f])).dot(
+                                   self.DCM_g(self.psi_1[f])).dot(
                                    self.center(-self.x1[f], -self.y1[f])).dot(
                                    np.array([x_trac[j], y_trac[j], 1]).T)
 
         hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
-                     self.DCM(self.psi_1[f])).dot(
+                     self.DCM_g(self.psi_1[f])).dot(
                      self.center(-self.x1[f], -self.y1[f])).dot(
                      np.array([self.x1[f]-self.h, self.y1[f], 1]).T)
 
 
         hitch_trail = self.center(self.x2[f], self.y2[f]).dot(
-                      self.DCM(self.psi_2[f])).dot(
+                      self.DCM_g(self.psi_2[f])).dot(
                       self.center(-self.x2[f], -self.y2[f])).dot(
                       np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
         
@@ -359,12 +325,82 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(hitch_trac[0], hitch_trac[1], 'g*')
         self.ax.plot(self.qg[0], self.qg[1], 'r*')
         self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
-        self.ax.set_xlim(self.min_x-2*self.turning_radius, self.max_x+2*self.turning_radius)
-        self.ax.set_ylim(self.min_y-2*self.turning_radius, self.max_y+2*self.turning_radius)
-        ''' 
+        self.ax.set_xlim(self.min_x, self.max_x)
+        self.ax.set_ylim(self.min_y, self.max_y)
         plt.pause(np.finfo(np.float32).eps)
-        #print('Render: ', f)
-        #print('Render: x2: {}, y2: {}'.format(self.x2[self.sim_i-1], self.y2[self.sim_i-1]))
-
+        
     def close(self):
+        ''' '''
         plt.close()
+
+    def get_closest_index(self, x, y, last_index, track_vector, look_ahead):
+        ''' '''
+        min_index = last_index
+        min_dist = self.path_planner.distance([track_vector[last_index, 0],
+                                               track_vector[last_index, 1]], 
+                                               [x, y])
+        search_forward = True
+
+        ## search behind
+        search_behind = 10
+        if last_index > search_behind:
+            last_index = last_index - search_behind
+
+        for i in range(last_index, last_index + search_behind - 1):
+            cur_dist = self.path_planner.distance([track_vector[i, 0],
+                                                   track_vector[i, 1]],
+                                                   [x, y])
+            if cur_dist < min_dist:
+                min_dist = cur_dist
+                min_index = i
+                search_forward = False
+
+            ## search ahead
+            if search_forward:
+                search_ahead = 10
+                if min_index > len(track_vector) - search_ahead:
+                    search_length = len(track_vector)
+                else:
+                    search_length = min_index + search_ahead
+
+                for i in range(min_index +  search_ahead):
+                    cur_dist = self.path_planner.distance([track_vector[i, 0],
+                                                           track_vector[i, 1]],
+                                                           [x, y])
+                    if cur_dist < min_dist:
+                        min_dist = cur_dist
+                        min_index = i
+
+            ## implement look_ahead
+            if look_ahead:
+                if min_index > length(track_vector) - look_ahead:
+                    min_index = min_index
+                else:
+                    min_index = min_index + look_ahead
+        return self.last_index
+
+    def get_error(self, i):
+        ''' '''
+        self.last_index = self.get_closest_index(self.x2[i], self.y2[i],
+                                                 self.last_index,
+                                                 self.track_vector,
+                                                 self.look_ahead)
+        self.r_x2[i] = self.track_vector[self.last_index, 0]
+        self.r_y2[i] = self.track_vector[self.last_index, 1]
+        self.r_psi_2[i] = self.psi_2[self.last_index]
+        self.r_psi_1[i] = self.psi_1[self.last_index]
+
+        self.psi_2_e[i] = self.path_planner.safe_minus(self.r_psi_2[i],
+                                                       self.psi_2[i])
+        self.psi_1_e[i] = self.path_planner.safe_minus(self.r_psi_1[i],
+                                                       self.psi_1[i])
+        self.x2_e[i] = self.r_x2[i] - self.x2[i]
+        self.y2_e[i] = self.r_y2[i] - self.y2[i]
+
+        self.error[i, 0:3] = self.DCM(self.psi_2[i, 0]).dot(
+                                               np.array([self.x2_e[i, 0], 
+                                               self.y2_e[i, 0],
+                                               self.psi_2_e[i, 0]]))
+        self.curv[i] = self.track_vector[i, 2]
+        return np.array([self.psi_1[i], self.psi_2[i], self.error[i, 1], 
+                         self.curv[i]])
