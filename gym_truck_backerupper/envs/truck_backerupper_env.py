@@ -46,9 +46,9 @@ class TruckBackerUpperEnv(gym.Env):
                                        high=self.max_action, shape=(1,))
         self.observation_space = spaces.Box(low=self.low_state,
                                             high=self.high_state)
-        turning_radius = 13.716
-        res = .05
-        self.path_planner = DubinsPark(turning_radius, res)
+        self.turning_radius = 13.716
+        self.res = .05
+        self.path_planner = DubinsPark(self.turning_radius, self.res)
         
         self.t0 = 0.0
         self.t_final = 80.0
@@ -63,11 +63,7 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.seed()
         self.reset() 
-        
-        self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
-        self.solver.set_initial_value(self.ICs, self.t0)
-        self.solver.set_f_params(self.u)
-        
+         
         self.goal = False
         self.jackknife = False
 
@@ -76,10 +72,10 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.fig, self.ax = plt.subplots(1, 1)
 
-        self.ax.set_xlim(self.min_x-turning_radius, self.max_x+turning_radius)
-        self.ax.set_ylim(self.min_y-turning_radius, self.max_y+turning_radius)
+        self.ax.set_xlim(self.min_x-2*self.turning_radius, self.max_x+2*self.turning_radius)
+        self.ax.set_ylim(self.min_y-2*self.turning_radius, self.max_y+2*self.turning_radius)
 
-        plotcols = ["blue", "green", "blue", "green", "red"]
+        '''plotcols = ["blue", "green", "blue", "green", "red"]
         self.lines = []
         for index in range(2):
             lobj = self.ax.plot([], [], ls="-", marker="", lw=2, color=plotcols[index])[0]
@@ -95,8 +91,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.anim = animation.FuncAnimation(self.fig, self.animate,
                                             init_func=self.init_anim,
                                             frames=None, 
-                                            blit=False,
-                                            repeat=False)
+                                            Gblit=False,
+                                            repeat=False)'''
 
         self.DCM = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                          [np.sin(ang), np.cos(ang),  0],
@@ -144,6 +140,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.y1[self.sim_i] = self.solver.y[3]
         self.x2[self.sim_i] = self.solver.y[4]
         self.y2[self.sim_i] = self.solver.y[5]
+
+        print(self.x2[self.sim_i], self.y2[self.sim_i], self.psi_2[self.sim_i])
 
         self.s = np.array([self.solver.y[0], self.solver.y[1], self.solver.y[2], 
                           self.solver.y[3], self.solver.y[4], self.solver.y[5]])
@@ -215,6 +213,14 @@ class TruckBackerUpperEnv(gym.Env):
         self.ICs = [self.psi_1_IC, self.psi_2_IC,
                     self.tractorIC[0], self.tractorIC[1],
                     self.trailerIC[0], self.trailerIC[1]]
+
+        self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
+        self.solver.set_initial_value(self.ICs, self.t0)
+        self.solver.set_f_params(self.u)
+
+        print(self.q0)
+        print(self.trailerIC[0], self.trailerIC[1])
+        print(self.psi_2_IC)
 
         self.t = np.zeros((self.num_steps, 1))
         self.psi_1 = np.zeros((self.num_steps, 1))
@@ -308,7 +314,58 @@ class TruckBackerUpperEnv(gym.Env):
 
     def render(self, mode='human'):
         ''' '''
+        f = self.sim_i - 1
+        x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
+                  self.x2[f]+self.L2, self.x2[f]+self.L2]
+        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
+                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
+                  self.y2[f]+self.H_t/2]
+
+        corners_trail = np.zeros((5, 3))
+        for j in range(len(x_trail)):
+            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
+                                    self.DCM(self.psi_2[f])).dot(
+                                    self.center(-self.x2[f], -self.y2[f])).dot(
+                                    np.array([x_trail[j], y_trail[j], 1]).T)
+
+
+        x_trac = [self.x1[f]+self.L1, self.x1[f], self.x1[f], 
+                  self.x1[f]+self.L1, self.x1[f]+self.L1]
+        y_trac = [self.y1[f]+self.H_c/2, self.y1[f]+self.H_c/2, 
+                  self.y1[f]-self.H_c/2, self.y1[f]-self.H_c/2, 
+                  self.y1[f]+self.H_c/2]
+
+        corners_trac = np.zeros((5, 3))
+        for j in range(len(x_trac)):
+            corners_trac[j, 0:3] = self.center(self.x1[f], self.y1[f]).dot(
+                                   self.DCM(self.psi_1[f])).dot(
+                                   self.center(-self.x1[f], -self.y1[f])).dot(
+                                   np.array([x_trac[j], y_trac[j], 1]).T)
+
+        hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
+                     self.DCM(self.psi_1[f])).dot(
+                     self.center(-self.x1[f], -self.y1[f])).dot(
+                     np.array([self.x1[f]-self.h, self.y1[f], 1]).T)
+
+
+        hitch_trail = self.center(self.x2[f], self.y2[f]).dot(
+                      self.DCM(self.psi_2[f])).dot(
+                      self.center(-self.x2[f], -self.y2[f])).dot(
+                      np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
+        
+        self.ax.clear()
+        self.ax.plot(corners_trail[:, 0], corners_trail[:, 1], 'b')
+        self.ax.plot(corners_trac[:, 0], corners_trac[:, 1], 'g')
+        self.ax.plot(self.x2[f], self.y2[f], 'b*')
+        self.ax.plot(self.x1[f], self.y1[f], 'g*')
+        self.ax.plot(hitch_trail[0], hitch_trail[1], 'b*')
+        self.ax.plot(hitch_trac[0], hitch_trac[1], 'g*')
+        self.ax.plot(self.qg[0], self.qg[1], 'r*')
+        self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
+        self.ax.set_xlim(self.min_x-2*self.turning_radius, self.max_x+2*self.turning_radius)
+        self.ax.set_ylim(self.min_y-2*self.turning_radius, self.max_y+2*self.turning_radius)
         plt.pause(np.finfo(np.float32).eps)
+        print('Render: ', f)
         #print('Render: x2: {}, y2: {}'.format(self.x2[self.sim_i-1], self.y2[self.sim_i-1]))
 
     def close(self):
