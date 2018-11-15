@@ -21,10 +21,10 @@ class TruckBackerUpperEnv(gym.Env):
 
     def __init__(self):
         ''' '''
-        self.min_x = -150.0
-        self.min_y = -150.0
-        self.max_x = 150.0
-        self.max_y = 150.0
+        self.min_x = -40.0
+        self.min_y = -40.0
+        self.max_x = 40.0
+        self.max_y = 40.0
 
         self.min_psi_1 = np.radians(0.0)
         self.min_psi_2 = np.radians(0.0)
@@ -47,7 +47,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.offset = False
         self.rendering = False
 
-        self.turning_radius = 60.0
+        self.turning_radius = 13.716
         self.res = .05
         self.path_planner = DubinsPark(self.turning_radius, self.res)
         
@@ -60,7 +60,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.L1 = 5.7336
         self.L2 = 12.192
         self.h = -0.2286
-        self.v = 25.0  
+        self.v = -25.0
         self.u = 0.0
 
         self.last_index = 0
@@ -116,6 +116,116 @@ class TruckBackerUpperEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
+    def reset(self):
+        ''' '''
+        if self.manual == False: 
+            self.x_start = np.random.randint(self.min_x, self.max_x)
+            self.y_start = np.random.randint(self.min_y, self.max_y)
+            self.psi_start = np.radians(np.random.randint(
+                                        np.degrees(self.min_psi_2), 
+                                        np.degrees(self.max_psi_2)))
+
+            self.x_goal = np.random.randint(self.min_x, self.max_x)
+            self.y_goal = np.random.randint(self.min_y, self.max_y)
+            self.psi_goal = np.radians(np.random.randint(
+                                       np.degrees(self.min_psi_2),
+                                       np.degrees(self.max_psi_2)))
+
+            self.q0 = [self.x_start, self.y_start, self.psi_start]
+            self.qg = [self.x_goal, self.y_goal, self.psi_goal]
+
+        self.track_vector = self.path_planner.generate(self.q0, self.qg)
+
+        if (max(self.track_vector[:, 0]) >= self.max_x - self.L2 or
+            min(self.track_vector[:, 0]) <= self.min_x + self.L2 or
+            max(self.track_vector[:, 1]) >= self.max_y - self.L2 or
+            min(self.track_vector[:, 1]) <= self.min_y + self.L2):
+            print('Dubins spawned out of bounds, respawning new track')
+            self.bound_reset()
+        else: 
+            if self.v < 0:
+                print('Going Backwards!')
+                self.track_vector[:, 3] += np.pi
+                self.q0[2] += np.pi
+                self.qg[2] += np.pi
+                self.track_vector[:, 2] *= -1
+
+            if self.offset == False:
+                self.y_IC = 0
+                self.psi_2_IC = np.radians(0) + self.track_vector[0, 3]
+                self.hitch_IC = np.radians(0)
+            else:
+                self.y_IC = self.y_IC_mod
+                self.psi_2_IC = np.radians(self.psi_2_IC_mod) + self.track_vector[0, 3]
+                self.hitch_IC = np.radians(self.hitch_IC_mod)
+            
+            self.psi_1_IC = self.hitch_IC + self.psi_2_IC
+            self.curv_IC = self.track_vector[0, 4]
+
+            self.trailerIC = [self.track_vector[0, 0] - 
+                              self.y_IC*np.sin(self.track_vector[0, 3]),
+                              self.track_vector[0, 1] + 
+                              self.y_IC*np.cos(self.track_vector[0, 3])]
+            self.tractorIC = [self.trailerIC[0] + self.L2*np.cos(self.psi_2_IC) + 
+                              self.h*np.cos(self.psi_1_IC),
+                              self.trailerIC[1] + self.L2*np.sin(self.psi_2_IC) + 
+                              self.h*np.sin(self.psi_1_IC)]
+            self.ICs = [self.psi_1_IC, self.psi_2_IC,
+                        self.tractorIC[0], self.tractorIC[1],
+                        self.trailerIC[0], self.trailerIC[1]]
+
+            self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
+            self.solver.set_initial_value(self.ICs, self.t0)
+            self.solver.set_f_params(self.u)
+
+            self.t = np.zeros((self.num_steps))
+            self.psi_1 = np.zeros((self.num_steps))
+            self.psi_2 = np.zeros((self.num_steps))
+            self.x1 = np.zeros((self.num_steps))
+            self.y1 = np.zeros((self.num_steps))
+            self.x2 = np.zeros((self.num_steps))
+            self.y2 = np.zeros((self.num_steps))
+            
+            self.psi_1[0] = self.psi_1_IC.copy()
+            self.psi_2[0] = self.psi_2_IC.copy()
+            self.x1[0] = self.tractorIC[0].copy()
+            self.y1[0] = self.tractorIC[1].copy()
+            self.x2[0] = self.trailerIC[0].copy()
+            self.y2[0] = self.trailerIC[1].copy()
+
+            self.r_x2 = np.zeros((self.num_steps))
+            self.r_y2 = np.zeros((self.num_steps))
+            self.r_psi_2 = np.zeros((self.num_steps))
+            self.r_psi_1 = np.zeros((self.num_steps))
+
+            self.psi_2_e = np.zeros((self.num_steps))
+            self.psi_1_e = np.zeros((self.num_steps))
+            self.x2_e = np.zeros((self.num_steps))
+            self.y2_e = np.zeros((self.num_steps))
+
+            self.error = np.zeros((self.num_steps, 3))
+            self.curv = np.zeros((self.num_steps))
+
+            self.s = self.get_error(0)
+        return self.s
+
+    def bound_reset(self):
+        ''' '''
+        self.reset()
+
+    def manual_course(self, q0, qg):
+        self.q0 = np.array([q0[0], q0[1], np.radians(q0[2])])
+        self.qg = np.array([qg[0], qg[1], np.radians(qg[2])])
+        self.manual = True
+        print('Manual Track inputted')
+
+    def manual_offset(self, y_IC, psi_2_IC, hitch_IC):
+        self.y_IC_mod = y_IC
+        self.psi_2_IC_mod = psi_2_IC
+        self.hitch_IC_mod = hitch_IC
+        self.offset = True
+        print('Manual offset inputted')
+
     def step(self, a):
         ''' '''
         done = False
@@ -123,7 +233,7 @@ class TruckBackerUpperEnv(gym.Env):
             a = self.max_action
         elif a < self.min_action:
             a = self.min_action
-        print('saturated = ', a)
+
         self.solver.set_f_params(a)
         self.solver.integrate(self.solver.t + self.dt)
 
@@ -166,14 +276,15 @@ class TruckBackerUpperEnv(gym.Env):
         if d_goal < self.min_d:
             self.min_d = d_goal
             self.min_psi = psi_goal
-        self.goal = bool(d_goal <= 0.15 and abs(psi_goal) <= 0.1)
+        self.goal = bool(d_goal <= 0.15 and abs(psi_goal) <= 0.1 and self.sim_i > 10)
 
         if self.goal:
             done = True
             print('GOAL')
 
-        if self.sim_i >= self.num_steps-1:
+        if self.sim_i+1 >= self.num_steps:
             self.times_up = True
+            done = True
             print('Times Up')
 
         self.s = self.get_error(self.sim_i)
@@ -189,118 +300,13 @@ class TruckBackerUpperEnv(gym.Env):
             r -= 1
          
         if done:
-            print('d = {:.3f} m and psi = {:.3f} degrees'.format(
-                                                    self.min_d, 
+            print('d = {:.3f} m and psi = {:.3f} degrees'.format(self.min_d, 
                                          np.degrees(self.min_psi)))
             if self.rendering:
                 plt.show()
 
         self.sim_i += 1
         return self.s, r, done, {}
-
-    def reset(self):
-        ''' '''
-        if self.manual == False: 
-            self.x_start = np.random.randint(self.min_x, self.max_x)
-            self.y_start = np.random.randint(self.min_y, self.max_y)
-            self.psi_start = np.radians(np.random.randint(
-                                        np.degrees(self.min_psi_2), 
-                                        np.degrees(self.max_psi_2)))
-
-            self.x_goal = np.random.randint(self.min_x, self.max_x)
-            self.y_goal = np.random.randint(self.min_y, self.max_y)
-            self.psi_goal = np.radians(np.random.randint(
-                                       np.degrees(self.min_psi_2),
-                                       np.degrees(self.max_psi_2)))
-
-            self.q0 = [self.x_start, self.y_start, self.psi_start]
-            self.qg = [self.x_goal, self.y_goal, self.psi_goal]
-
-        self.track_vector = self.path_planner.generate(self.q0, self.qg)
-
-        if (max(self.track_vector[:, 0]) >= self.max_x or
-            min(self.track_vector[:, 0]) <= self.min_x or
-            max(self.track_vector[:, 1]) >= self.max_y or
-            min(self.track_vector[:, 1]) <= self.min_y):
-            print('Dubins spawned out of bounds, respawning new track')
-            self.bound_reset()
-
-        if self.v < 0:
-            self.track_vector[0, 3] += np.pi
-            self.track_vector[:, 2] *= -1
-
-        if self.offset == False:
-            self.y_IC = 0
-            self.psi_2_IC = np.radians(0) + self.track_vector[0, 3]
-            self.hitch_IC = np.radians(0)
-        
-        self.psi_1_IC = self.hitch_IC + self.psi_2_IC
-        self.curv_IC = self.track_vector[0, 4]
-
-        self.trailerIC = [self.track_vector[0, 0] - 
-                          self.y_IC*np.sin(self.track_vector[0, 3]),
-                          self.track_vector[0, 1] + 
-                          self.y_IC*np.cos(self.track_vector[0, 3])]
-        self.tractorIC = [self.trailerIC[0] + self.L2*np.cos(self.psi_2_IC) + 
-                          self.h*np.cos(self.psi_1_IC),
-                          self.trailerIC[1] + self.L2*np.sin(self.psi_2_IC) + 
-                          self.h*np.sin(self.psi_1_IC)]
-        self.ICs = [self.psi_1_IC, self.psi_2_IC,
-                    self.tractorIC[0], self.tractorIC[1],
-                    self.trailerIC[0], self.trailerIC[1]]
-
-        self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
-        self.solver.set_initial_value(self.ICs, self.t0)
-        self.solver.set_f_params(self.u)
-
-        self.t = np.zeros((self.num_steps))
-        self.psi_1 = np.zeros((self.num_steps))
-        self.psi_2 = np.zeros((self.num_steps))
-        self.x1 = np.zeros((self.num_steps))
-        self.y1 = np.zeros((self.num_steps))
-        self.x2 = np.zeros((self.num_steps))
-        self.y2 = np.zeros((self.num_steps))
-        
-        self.psi_1[0] = self.psi_1_IC.copy()
-        self.psi_2[0] = self.psi_2_IC.copy()
-        self.x1[0] = self.tractorIC[0].copy()
-        self.y1[0] = self.tractorIC[1].copy()
-        self.x2[0] = self.trailerIC[0].copy()
-        self.y2[0] = self.trailerIC[1].copy()
-
-        self.r_x2 = np.zeros((self.num_steps))
-        self.r_y2 = np.zeros((self.num_steps))
-        self.r_psi_2 = np.zeros((self.num_steps))
-        self.r_psi_1 = np.zeros((self.num_steps))
-
-        self.psi_2_e = np.zeros((self.num_steps))
-        self.psi_1_e = np.zeros((self.num_steps))
-        self.x2_e = np.zeros((self.num_steps))
-        self.y2_e = np.zeros((self.num_steps))
-
-        self.error = np.zeros((self.num_steps, 3))
-        self.curv = np.zeros((self.num_steps))
-
-        self.s = self.get_error(0)
-        return self.s
-
-    def bound_reset(self):
-        ''' '''
-        self.reset()
-
-    def manual_course(self, q0, qg):
-        self.q0 = np.array([q0[0], q0[1], np.radians(q0[2])])
-        self.qg = np.array([qg[0], qg[1], np.radians(qg[2])])
-        self.manual = True
-        print('Manual Track inputted')
-
-    def manual_offset(self, y_IC, psi_2_IC, hitch_IC):
-        self.reset() # to populate q0
-        self.y_IC = y_IC
-        self.psi_2_IC = np.radians(psi_2_IC) + self.q0[2]
-        self.hitch_IC = np.radians(hitch_IC)
-        self.offset = True
-        print('Manual offset inputted')
 
     def render(self, mode='human'):
         ''' '''
@@ -360,6 +366,9 @@ class TruckBackerUpperEnv(gym.Env):
         ''' '''
         plt.close()
 
+    def lookahead(self, look_ahead):
+        self.look_ahead = look_ahead
+
     def get_closest_index(self, x, y, last_index, track_vector, look_ahead):
         ''' '''
         min_index = last_index
@@ -400,8 +409,8 @@ class TruckBackerUpperEnv(gym.Env):
 
             ## implement look_ahead
             if look_ahead:
-                if min_index > length(track_vector) - look_ahead:
-                    min_index = min_index
+                if min_index >= len(track_vector) - look_ahead:
+                    pass
                 else:
                     min_index = min_index + look_ahead
         return min_index
@@ -435,4 +444,4 @@ class TruckBackerUpperEnv(gym.Env):
                                                self.psi_2[i]]).T)
         self.curv[i] = self.track_vector[self.last_c_index, 2]
         return np.array([self.psi_1_e[i], self.psi_2_e[i], self.error[i, 1], 
-                         self.curv[i]])
+                         self.L1 * self.curv[i]])
