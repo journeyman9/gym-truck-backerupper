@@ -37,8 +37,10 @@ class DubinsPark:
 
         ## Modify dubins to work for a straight offset from goal
         self.q1 = self.qg.copy()
-        self.q1[0] -= self.turning_radius * np.cos(self.q1[2])
-        self.q1[1] -= self.turning_radius * np.sin(self.q1[2])
+        #self.q1[0] -= self.turning_radius * np.cos(self.q1[2])
+        #self.q1[1] -= self.turning_radius * np.sin(self.q1[2])
+        self.q1[0] -= 137.1787 * np.cos(self.q1[2])
+        self.q1[1] -= 137.1787 * np.sin(self.q1[2])
 
         # Dubins
         path = dubins.shortest_path(self.q0, self.q1, self.turning_radius)
