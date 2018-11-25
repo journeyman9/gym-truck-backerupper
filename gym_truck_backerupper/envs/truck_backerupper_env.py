@@ -286,9 +286,12 @@ class TruckBackerUpperEnv(gym.Env):
             print('Out of Bounds')
             done = True
 
+        t_x, t_y, _ = np.array([self.x2[self.sim_i], self.y2[self.sim_i], 1]).T + \
+                            self.DCM_g(self.psi_2[self.sim_i]).dot(
+                            np.array([-self.trail, 0, 1]).T)
         d_goal =  self.path_planner.distance(self.qg[0:2], 
-                                             [self.x2[self.sim_i], 
-                                              self.y2[self.sim_i]])
+                                             [t_x, 
+                                              t_y])
         psi_goal = self.path_planner.safe_minus(self.qg[2], 
                                                 self.psi_2[self.sim_i])
         if d_goal < self.min_d:
@@ -301,9 +304,9 @@ class TruckBackerUpperEnv(gym.Env):
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (self.track_vector[-100, 1] - self.dock_y[0])) * \
                              ((self.dock_y[0] - self.dock_y[-1]) * \
-                             (self.x2[self.sim_i] - self.dock_x[0]) + \
+                             (t_x - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
-                             (self.y2[self.sim_i] - self.dock_y[0]))
+                             (t_y - self.dock_y[0]))
             if self.goal_side < 0 and self.sim_i > 100:
                 done = True
                 self.fin = True
@@ -422,20 +425,6 @@ class TruckBackerUpperEnv(gym.Env):
                                     self.DCM_g(self.psi_2[f])).dot(
                                     self.center(-t_rr_x, -t_rr_y)).dot(
                                     np.array([rr_x_trailer[j], rr_y_trailer[j], 1]).T)
-        ## Trailer
-        trail = 3.0 
-        x_trail = [self.x2[f]+self.L2+trail, self.x2[f]-trail, self.x2[f]-trail, 
-                  self.x2[f]+self.L2+trail, self.x2[f]+self.L2+trail]
-        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
-                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
-                  self.y2[f]+self.H_t/2]
-
-        corners_trail = np.zeros((5, 3))
-        for j in range(len(x_trail)):
-            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
-                                    self.DCM_g(self.psi_2[f])).dot(
-                                    self.center(-self.x2[f], -self.y2[f])).dot(
-                                    np.array([x_trail[j], y_trail[j], 1]).T)
         ## Cab
         cab = 1.5
         x_trac = [self.x1[f]+self.L1+cab, self.x1[f]-cab, self.x1[f]-cab, 
@@ -450,6 +439,20 @@ class TruckBackerUpperEnv(gym.Env):
                                    self.DCM_g(self.psi_1[f])).dot(
                                    self.center(-self.x1[f], -self.y1[f])).dot(
                                    np.array([x_trac[j], y_trac[j], 1]).T)
+        ## Trailer
+        self.trail = 2.0 
+        x_trail = [self.x2[f]+self.L2+self.trail, self.x2[f]-self.trail, self.x2[f]-self.trail, 
+                  self.x2[f]+self.L2+self.trail, self.x2[f]+self.L2+self.trail]
+        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
+                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
+                  self.y2[f]+self.H_t/2]
+
+        corners_trail = np.zeros((5, 3))
+        for j in range(len(x_trail)):
+            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
+                                    self.DCM_g(self.psi_2[f])).dot(
+                                    self.center(-self.x2[f], -self.y2[f])).dot(
+                                    np.array([x_trail[j], y_trail[j], 1]).T)
         ## Points
         hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
                      self.DCM_g(self.psi_1[f])).dot(
@@ -467,8 +470,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(corners_trac[:, 0], corners_trac[:, 1], 'g')
         self.ax.plot(self.x2[f], self.y2[f], 'b*')
         self.ax.plot(self.x1[f], self.y1[f], 'g*')
-        self.ax.plot(hitch_trail[0], hitch_trail[1], 'b*')
-        self.ax.plot(hitch_trac[0], hitch_trac[1], 'g*')
+        self.ax.plot(hitch_trac[0], hitch_trac[1], 'g.')
+        self.ax.plot(hitch_trail[0], hitch_trail[1], 'b.')
         self.ax.plot(self.qg[0], self.qg[1], 'r*')
         self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
         self.ax.plot(self.dock_x, self.dock_y, '--k')
