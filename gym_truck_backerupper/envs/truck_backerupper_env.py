@@ -52,7 +52,7 @@ class TruckBackerUpperEnv(gym.Env):
                                        high=self.max_action, shape=(1,))
         self.observation_space = spaces.Box(low=self.low_state,
                                             high=self.high_state)
-        self.manual = False
+        self.manual_track = False
         self.offset = False
         self.rendering = False
         
@@ -65,7 +65,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.L1 = 5.7336
         self.L2 = 12.192
         self.h = -0.2286
-        self.v = -25.0 #1.12
+        self.v = -1.12
         self.u = 0.0
 
         self.look_ahead = 0
@@ -77,8 +77,9 @@ class TruckBackerUpperEnv(gym.Env):
          
         self.H_c = self.L2 / 3.0
         self.H_t = self.L2 / 3.0
+        self.trail = 2.0 
         
-        self.fig, self.ax = plt.subplots(1, 1, figsize=(15, 15))
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(10, 10))
 
         self.DCM_g = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                            [np.sin(ang), np.cos(ang),  0],
@@ -128,7 +129,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.min_d = self.max_x - self.min_x
         self.min_psi = self.max_psi_1.copy()
 
-        if self.manual == False: 
+        if self.manual_track == False: 
             self.x_start = np.random.randint(self.min_x, self.max_x)
             self.y_start = np.random.randint(self.min_y, self.max_y)
             self.psi_start = np.radians(np.random.randint(
@@ -232,7 +233,7 @@ class TruckBackerUpperEnv(gym.Env):
     def manual_course(self, q0, qg):
         self.q0 = np.array([q0[0], q0[1], np.radians(q0[2])])
         self.qg = np.array([qg[0], qg[1], np.radians(qg[2])])
-        self.manual = True
+        self.manual_track = True
         print('Manual Track inputted')
 
     def manual_offset(self, y_IC, psi_2_IC, hitch_IC):
@@ -242,10 +243,13 @@ class TruckBackerUpperEnv(gym.Env):
         self.offset = True
         print('Manual offset inputted')
 
+    def manual_velocity(self, v):
+        self.v = v
+        print('Manual velocity inputted')
+
     def step(self, a):
         ''' '''
         done = False
-        r = -1
         if a > self.max_action:
             a = self.max_action
         elif a < self.min_action:
@@ -269,7 +273,6 @@ class TruckBackerUpperEnv(gym.Env):
         elif self.theta < -self.max_hitch:
             self.jackknife = True
             done = True
-            r -= 10
             print('Jackknife')
         else:
             self.jackknife = False
@@ -287,8 +290,8 @@ class TruckBackerUpperEnv(gym.Env):
             done = True
 
         t_x, t_y, _ = np.array([self.x2[self.sim_i], self.y2[self.sim_i], 1]).T + \
-                            self.DCM_g(self.psi_2[self.sim_i]).dot(
-                            np.array([-self.trail, 0, 1]).T)
+                               self.DCM_g(self.psi_2[self.sim_i]).dot(
+                               np.array([-self.trail, 0, 1]).T)
         d_goal =  self.path_planner.distance(self.qg[0:2], 
                                              [t_x, 
                                               t_y])
@@ -315,7 +318,6 @@ class TruckBackerUpperEnv(gym.Env):
         self.goal = bool(self.min_d <= 0.15 and abs(self.min_psi) <= 0.1 
                          and self.fin)       
         if self.goal:
-            r += 100
             print('GOAL')
 
         self.s = self.get_error(self.sim_i)
@@ -324,12 +326,15 @@ class TruckBackerUpperEnv(gym.Env):
         if self.sim_i >= self.num_steps:
             self.times_up = True
             done = True
-            r -= 10
             print('Times Up')
 
         if done:
             print('d = {:.3f} m and psi = {:.3f} degrees'.format(self.min_d, 
                                          np.degrees(self.min_psi)))
+        r = -1 + self.goal * 100 - self.jackknife * 10 - \
+            self.out_of_bounds * 10 - self.times_up * 10 + \
+            bool(self.s[0] < 0.1) * 1 + bool(self.s[1] < 0.1) * 1 + \
+            bool(self.s[2] < 0.15) * 1
         return self.s, r, done, self.t[self.sim_i-1]
 
     def render(self, mode='human'):
@@ -440,7 +445,6 @@ class TruckBackerUpperEnv(gym.Env):
                                    self.center(-self.x1[f], -self.y1[f])).dot(
                                    np.array([x_trac[j], y_trac[j], 1]).T)
         ## Trailer
-        self.trail = 2.0 
         x_trail = [self.x2[f]+self.L2+self.trail, self.x2[f]-self.trail, self.x2[f]-self.trail, 
                   self.x2[f]+self.L2+self.trail, self.x2[f]+self.L2+self.trail]
         y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
