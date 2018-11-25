@@ -78,7 +78,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.H_c = self.L2 / 3.0
         self.H_t = self.L2 / 3.0
         
-        self.fig, self.ax = plt.subplots(1, 1)
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(15, 15))
 
         self.DCM_g = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                            [np.sin(ang), np.cos(ang),  0],
@@ -89,9 +89,10 @@ class TruckBackerUpperEnv(gym.Env):
                                              [0, 0, 1]])
 
     def kinematic_model(self, t, x, u):
+        self.u = u
         n = len(x)
         xd = np.zeros((n))
-        xd[0] = (self.v / self.L1) * np.tan(u)
+        xd[0] = (self.v / self.L1) * np.tan(self.u)
 
         self.theta = x[0] - x[1]
 
@@ -114,6 +115,7 @@ class TruckBackerUpperEnv(gym.Env):
 
     def reset(self):
         ''' '''
+        self.u = 0
         self.goal_side = 1
         self.fin = False
         self.sim_i = 1
@@ -302,7 +304,7 @@ class TruckBackerUpperEnv(gym.Env):
                              (self.x2[self.sim_i] - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (self.y2[self.sim_i] - self.dock_y[0]))
-            if self.goal_side < 0 and self.sim_i > 50:
+            if self.goal_side < 0 and self.sim_i > 100:
                 done = True
                 self.fin = True
                 print('At Loading Dock Bumpers')
@@ -368,6 +370,24 @@ class TruckBackerUpperEnv(gym.Env):
                       self.center(-self.x2[f], -self.y2[f])).dot(
                       np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
 
+        ## Steering tyres
+        #f_x = self.x1[f] + self.L1 * np.cos(self.psi_1[f])
+        #f_y = self.y1[f] + self.L1 * np.sin(self.psi_1[f])
+        f_x, f_y, _ = np.array([self.x1[f], self.y1[f], 1]).T + \
+                     self.DCM_g(self.psi_1[f]).dot(
+                     np.array([self.L1, self.H_c/2, 1]).T)
+
+        r_tyre = 2.286 / 2
+        t_tyre = r_tyre / 3
+        x_steer = [f_x+r_tyre,  f_x-r_tyre, f_x-r_tyre, f_x+r_tyre, f_x+r_tyre]
+        y_steer = [f_y+t_tyre, f_y+t_tyre, f_y-t_tyre, f_y-t_tyre, f_y+t_tyre]
+        corners_steer = np.zeros((5, 3))
+        print(self.u)
+        for j in range(len(x_steer)):
+            corners_steer[j, 0:3] = self.center(f_x, f_y).dot(
+                                    self.DCM_g(self.psi_1[f]+self.u)).dot(
+                                    self.center(-f_x, -f_y)).dot(
+                                    np.array([x_steer[j], y_steer[j], 1]).T)
         self.ax.clear()
         self.ax.plot(corners_trail[:, 0], corners_trail[:, 1], 'b')
         self.ax.plot(corners_trac[:, 0], corners_trac[:, 1], 'g')
@@ -378,6 +398,9 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(self.qg[0], self.qg[1], 'r*')
         self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
         self.ax.plot(self.dock_x, self.dock_y, '--k')
+
+        self.ax.plot(corners_steer[:, 0], corners_steer[:, 1], 'k')
+
         self.ax.set_xlim(self.min_x, self.max_x)
         self.ax.set_ylim(self.min_y, self.max_y)
         plt.pause(np.finfo(np.float32).eps)
