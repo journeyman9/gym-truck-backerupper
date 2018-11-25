@@ -57,7 +57,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.rendering = False
         
         self.t0 = 0.0
-        self.t_final = 80.0
+        self.t_final = 250.0
         self.dt = .010
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
@@ -65,7 +65,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.L1 = 5.7336
         self.L2 = 12.192
         self.h = -0.2286
-        self.v = -25.0 #1.12
+        self.v = -1.12
         self.u = 0.0
 
         self.last_index = 0
@@ -173,6 +173,12 @@ class TruckBackerUpperEnv(gym.Env):
                 self.y_IC = self.y_IC_mod
                 self.psi_2_IC = np.radians(self.psi_2_IC_mod) + self.track_vector[0, 3]
                 self.hitch_IC = np.radians(self.hitch_IC_mod)
+
+            ## normal to goal loading dock
+            self.dx = 100.0 * (self.track_vector[-1, 0] - self.track_vector[-2, 0])
+            self.dy = 100.0 * (self.track_vector[-1, 1] - self.track_vector[-2, 1])
+            self.dock_x = np.linspace(-self.dy, self.dy, 5) + self.qg[0]
+            self.dock_y = np.linspace(self.dx, -self.dx, 5) + self.qg[1]
             
             self.psi_1_IC = self.hitch_IC + self.psi_2_IC
             self.curv_IC = self.track_vector[0, 4]
@@ -299,6 +305,19 @@ class TruckBackerUpperEnv(gym.Env):
             done = True
             r += 100
             print('GOAL')
+         
+        if self.min_d < 3:
+            self.goal_side = ((self.dock_y[0] - self.dock_y[-1]) * \
+                             (self.track_vector[-100, 0] - self.dock_x[0]) + \
+                             (self.dock_x[-1] - self.dock_x[0]) * \
+                             (self.track_vector[-100, 1] - self.dock_y[0])) * \
+                             ((self.dock_y[0] - self.dock_y[-1]) * \
+                             (self.x2[self.sim_i] - self.dock_x[0]) + \
+                             (self.dock_x[-1] - self.dock_x[0]) * \
+                             (self.y2[self.sim_i] - self.dock_y[0]))
+            if self.goal_side < 0:
+                done = True
+                print('Fin.')
 
         self.s = self.get_error(self.sim_i)
 
@@ -312,7 +331,7 @@ class TruckBackerUpperEnv(gym.Env):
         if done:
             print('d = {:.3f} m and psi = {:.3f} degrees'.format(self.min_d, 
                                          np.degrees(self.min_psi)))
-        return self.s, r, done, {}
+        return self.s, r, done, self.t[self.sim_i-1]
 
     def render(self, mode='human'):
         ''' '''
@@ -354,7 +373,7 @@ class TruckBackerUpperEnv(gym.Env):
                       self.DCM_g(self.psi_2[f])).dot(
                       self.center(-self.x2[f], -self.y2[f])).dot(
                       np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
-        
+
         self.ax.clear()
         self.ax.plot(corners_trail[:, 0], corners_trail[:, 1], 'b')
         self.ax.plot(corners_trac[:, 0], corners_trac[:, 1], 'g')
@@ -364,6 +383,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(hitch_trac[0], hitch_trac[1], 'g*')
         self.ax.plot(self.qg[0], self.qg[1], 'r*')
         self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
+        self.ax.plot(self.dock_x, self.dock_y, '--k')
         self.ax.set_xlim(self.min_x, self.max_x)
         self.ax.set_ylim(self.min_y, self.max_y)
         plt.pause(np.finfo(np.float32).eps)
