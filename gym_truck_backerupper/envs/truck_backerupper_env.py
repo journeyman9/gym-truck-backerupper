@@ -494,7 +494,7 @@ class TruckBackerUpperEnv(gym.Env):
         
     def close(self):
         ''' '''
-        plt.close()
+        plt.close('all')
 
     def lookahead(self, look_ahead):
         self.look_ahead = look_ahead
