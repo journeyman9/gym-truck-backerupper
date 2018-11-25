@@ -371,23 +371,93 @@ class TruckBackerUpperEnv(gym.Env):
                       np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
 
         ## Steering tyres
-        #f_x = self.x1[f] + self.L1 * np.cos(self.psi_1[f])
-        #f_y = self.y1[f] + self.L1 * np.sin(self.psi_1[f])
-        f_x, f_y, _ = np.array([self.x1[f], self.y1[f], 1]).T + \
-                     self.DCM_g(self.psi_1[f]).dot(
-                     np.array([self.L1, self.H_c/2, 1]).T)
-
         r_tyre = 2.286 / 2
         t_tyre = r_tyre / 3
-        x_steer = [f_x+r_tyre,  f_x-r_tyre, f_x-r_tyre, f_x+r_tyre, f_x+r_tyre]
-        y_steer = [f_y+t_tyre, f_y+t_tyre, f_y-t_tyre, f_y-t_tyre, f_y+t_tyre]
-        corners_steer = np.zeros((5, 3))
-        print(self.u)
-        for j in range(len(x_steer)):
-            corners_steer[j, 0:3] = self.center(f_x, f_y).dot(
+        fl_x, fl_y, _ = np.array([self.x1[f], self.y1[f], 1]).T + \
+                     self.DCM_g(self.psi_1[f]).dot(
+                     np.array([self.L1, self.H_c/2-t_tyre/2, 1]).T)
+
+
+        fr_x, fr_y, _ = np.array([self.x1[f], self.y1[f], 1]).T + \
+                     self.DCM_g(self.psi_1[f]).dot(
+                     np.array([self.L1, -self.H_c/2+t_tyre/2, 1]).T)
+
+
+        fl_x_steer = [fl_x+r_tyre,  fl_x-r_tyre, fl_x-r_tyre, fl_x+r_tyre, fl_x+r_tyre]
+        fl_y_steer = [fl_y+t_tyre, fl_y+t_tyre, fl_y-t_tyre, fl_y-t_tyre, fl_y+t_tyre]
+        corners_fl_steer = np.zeros((5, 3))
+        for j in range(len(fl_x_steer)):
+            corners_fl_steer[j, 0:3] = self.center(fl_x, fl_y).dot(
                                     self.DCM_g(self.psi_1[f]+self.u)).dot(
-                                    self.center(-f_x, -f_y)).dot(
-                                    np.array([x_steer[j], y_steer[j], 1]).T)
+                                    self.center(-fl_x, -fl_y)).dot(
+                                    np.array([fl_x_steer[j], fl_y_steer[j], 1]).T)
+
+        fr_x_steer = [fr_x+r_tyre,  fr_x-r_tyre, fr_x-r_tyre, fr_x+r_tyre, fr_x+r_tyre]
+        fr_y_steer = [fr_y+t_tyre, fr_y+t_tyre, fr_y-t_tyre, fr_y-t_tyre, fr_y+t_tyre]
+        corners_fr_steer = np.zeros((5, 3))
+        for j in range(len(fr_x_steer)):
+            corners_fr_steer[j, 0:3] = self.center(fr_x, fr_y).dot(
+                                    self.DCM_g(self.psi_1[f]+self.u)).dot(
+                                    self.center(-fr_x, -fr_y)).dot(
+                                    np.array([fr_x_steer[j], fr_y_steer[j], 1]).T)
+
+        ## Tractor Rear tyres
+        rl_x, rl_y, _ = np.array([self.x1[f], self.y1[f], 1]).T + \
+                     self.DCM_g(self.psi_1[f]).dot(
+                     np.array([0, self.H_c/2-t_tyre/2, 1]).T)
+
+
+        rr_x, rr_y, _ = np.array([self.x1[f], self.y1[f], 1]).T + \
+                     self.DCM_g(self.psi_1[f]).dot(
+                     np.array([0, -self.H_c/2+t_tyre/2, 1]).T)
+
+
+        rl_x_drive = [rl_x+r_tyre,  rl_x-r_tyre, rl_x-r_tyre, rl_x+r_tyre, rl_x+r_tyre]
+        rl_y_drive = [rl_y+t_tyre, rl_y+t_tyre, rl_y-t_tyre, rl_y-t_tyre, rl_y+t_tyre]
+        corners_rl_drive = np.zeros((5, 3))
+        for j in range(len(rl_x_drive)):
+            corners_rl_drive[j, 0:3] = self.center(rl_x, rl_y).dot(
+                                    self.DCM_g(self.psi_1[f])).dot(
+                                    self.center(-rl_x, -rl_y)).dot(
+                                    np.array([rl_x_drive[j], rl_y_drive[j], 1]).T)
+
+        rr_x_drive = [rr_x+r_tyre,  rr_x-r_tyre, rr_x-r_tyre, rr_x+r_tyre, rr_x+r_tyre]
+        rr_y_drive = [rr_y+t_tyre, rr_y+t_tyre, rr_y-t_tyre, rr_y-t_tyre, rr_y+t_tyre]
+        corners_rr_drive = np.zeros((5, 3))
+        for j in range(len(rr_x_drive)):
+            corners_rr_drive[j, 0:3] = self.center(rr_x, rr_y).dot(
+                                    self.DCM_g(self.psi_1[f])).dot(
+                                    self.center(-rr_x, -rr_y)).dot(
+                                    np.array([rr_x_drive[j], rr_y_drive[j], 1]).T)
+
+        ## Trailer tyres
+        t_rl_x, t_rl_y, _ = np.array([self.x2[f], self.y2[f], 1]).T + \
+                            self.DCM_g(self.psi_2[f]).dot(
+                            np.array([0, self.H_t/2-t_tyre/2, 1]).T)
+
+
+        t_rr_x, t_rr_y, _ = np.array([self.x2[f], self.y2[f], 1]).T + \
+                            self.DCM_g(self.psi_2[f]).dot(
+                            np.array([0, -self.H_t/2+t_tyre/2, 1]).T)
+
+
+        rl_x_trailer = [t_rl_x+r_tyre,  t_rl_x-r_tyre, t_rl_x-r_tyre, t_rl_x+r_tyre, t_rl_x+r_tyre]
+        rl_y_trailer = [t_rl_y+t_tyre, t_rl_y+t_tyre, t_rl_y-t_tyre, t_rl_y-t_tyre, t_rl_y+t_tyre]
+        corners_rl_trailer = np.zeros((5, 3))
+        for j in range(len(rl_x_trailer)):
+            corners_rl_trailer[j, 0:3] = self.center(t_rl_x, t_rl_y).dot(
+                                    self.DCM_g(self.psi_2[f])).dot(
+                                    self.center(-t_rl_x, -t_rl_y)).dot(
+                                    np.array([rl_x_trailer[j], rl_y_trailer[j], 1]).T)
+
+        rr_x_trailer = [t_rr_x+r_tyre,  t_rr_x-r_tyre, t_rr_x-r_tyre, t_rr_x+r_tyre, t_rr_x+r_tyre]
+        rr_y_trailer = [t_rr_y+t_tyre, t_rr_y+t_tyre, t_rr_y-t_tyre, t_rr_y-t_tyre, t_rr_y+t_tyre]
+        corners_rr_trailer = np.zeros((5, 3))
+        for j in range(len(rr_x_trailer)):
+            corners_rr_trailer[j, 0:3] = self.center(t_rr_x, t_rr_y).dot(
+                                    self.DCM_g(self.psi_2[f])).dot(
+                                    self.center(-t_rr_x, -t_rr_y)).dot(
+                                    np.array([rr_x_trailer[j], rr_y_trailer[j], 1]).T)
         self.ax.clear()
         self.ax.plot(corners_trail[:, 0], corners_trail[:, 1], 'b')
         self.ax.plot(corners_trac[:, 0], corners_trac[:, 1], 'g')
@@ -399,7 +469,13 @@ class TruckBackerUpperEnv(gym.Env):
         self.ax.plot(self.track_vector[:, 0], self.track_vector[:, 1], '--r')
         self.ax.plot(self.dock_x, self.dock_y, '--k')
 
-        self.ax.plot(corners_steer[:, 0], corners_steer[:, 1], 'k')
+        self.ax.plot(corners_fl_steer[:, 0], corners_fl_steer[:, 1], 'k')
+        self.ax.plot(corners_fr_steer[:, 0], corners_fr_steer[:, 1], 'k')
+        self.ax.plot(corners_rl_drive[:, 0], corners_rl_drive[:, 1], 'k')
+        self.ax.plot(corners_rr_drive[:, 0], corners_rr_drive[:, 1], 'k')
+        self.ax.plot(corners_rl_trailer[:, 0], corners_rl_trailer[:, 1], 'k')
+        self.ax.plot(corners_rr_trailer[:, 0], corners_rr_trailer[:, 1], 'k')
+
 
         self.ax.set_xlim(self.min_x, self.max_x)
         self.ax.set_ylim(self.min_y, self.max_y)
