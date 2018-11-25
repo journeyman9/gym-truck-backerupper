@@ -30,14 +30,23 @@ class TruckBackerUpperEnv(gym.Env):
         self.min_psi_2 = np.radians(0.0)
         self.max_psi_1 = np.radians(360.0)
         self.max_psi_2 = np.radians(360.0)
+        
+        self.turning_radius = 13.716
+        self.res = .05
+        self.path_planner = DubinsPark(self.turning_radius, self.res)
+
+        self.max_curv = 1.0 / self.turning_radius
+        self.min_curv = -1.0 / self.turning_radius
  
         self.max_hitch = np.radians(90.0)
 
         self.min_action = -np.radians(45.0)
         self.max_action = np.radians(45.0)
 
-        self.low_state = np.array([self.min_psi_1, self.min_psi_2, self.min_y])
-        self.high_state = np.array([self.max_psi_1, self.max_psi_2, self.max_y])
+        self.low_state = np.array([self.min_psi_1, self.min_psi_2, self.min_y,
+                                  self.min_curv])
+        self.high_state = np.array([self.max_psi_1, self.max_psi_2, self.max_y,
+                                   self.max_curv])
 
         self.action_space = spaces.Box(low=self.min_action,
                                        high=self.max_action, shape=(1,))
@@ -46,10 +55,6 @@ class TruckBackerUpperEnv(gym.Env):
         self.manual = False
         self.offset = False
         self.rendering = False
-
-        self.turning_radius = 13.716
-        self.res = .05
-        self.path_planner = DubinsPark(self.turning_radius, self.res)
         
         self.t0 = 0.0
         self.t_final = 80.0
@@ -60,7 +65,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.L1 = 5.7336
         self.L2 = 12.192
         self.h = -0.2286
-        self.v = -25.0
+        self.v = -25.0 #1.12
         self.u = 0.0
 
         self.last_index = 0
@@ -118,6 +123,16 @@ class TruckBackerUpperEnv(gym.Env):
 
     def reset(self):
         ''' '''
+        self.sim_i = 1
+        self.last_index = 0
+        self.last_c_index = 0
+        self.goal = False
+        self.jackknife = False
+        self.out_of_bounds = False
+        self.times_up = False
+        self.min_d = self.max_x - self.min_x
+        self.min_psi = self.max_psi_1.copy()
+
         if self.manual == False: 
             self.x_start = np.random.randint(self.min_x, self.max_x)
             self.y_start = np.random.randint(self.min_y, self.max_y)
@@ -140,11 +155,11 @@ class TruckBackerUpperEnv(gym.Env):
             min(self.track_vector[:, 0]) <= self.min_x + self.L2 or
             max(self.track_vector[:, 1]) >= self.max_y - self.L2 or
             min(self.track_vector[:, 1]) <= self.min_y + self.L2):
-            print('Dubins spawned out of bounds, respawning new track')
+            #print('Dubins spawned out of bounds, respawning new track')
             self.bound_reset()
         else: 
             if self.v < 0:
-                print('Going Backwards!')
+                #print('Going Backwards!')
                 self.track_vector[:, 3] += np.pi
                 self.q0[2] += np.pi
                 self.qg[2] += np.pi
@@ -229,6 +244,7 @@ class TruckBackerUpperEnv(gym.Env):
     def step(self, a):
         ''' '''
         done = False
+        r = -1
         if a > self.max_action:
             a = self.max_action
         elif a < self.min_action:
@@ -252,6 +268,7 @@ class TruckBackerUpperEnv(gym.Env):
         elif self.theta < -self.max_hitch:
             self.jackknife = True
             done = True
+            r -= 10
             print('Jackknife')
         else:
             self.jackknife = False
@@ -280,32 +297,21 @@ class TruckBackerUpperEnv(gym.Env):
 
         if self.goal:
             done = True
+            r += 100
             print('GOAL')
-
-        if self.sim_i+1 >= self.num_steps:
-            self.times_up = True
-            done = True
-            print('Times Up')
 
         self.s = self.get_error(self.sim_i)
 
-        r = 0
-        if self.goal:
-            r += 100
-        elif self.jackknife:
+        self.sim_i += 1
+        if self.sim_i >= self.num_steps:
+            self.times_up = True
+            done = True
             r -= 10
-        elif self.sim_i >= self.num_steps:
-            r -= 10
-        else:
-            r -= 1
-         
+            print('Times Up')
+
         if done:
             print('d = {:.3f} m and psi = {:.3f} degrees'.format(self.min_d, 
                                          np.degrees(self.min_psi)))
-            if self.rendering:
-                plt.show()
-
-        self.sim_i += 1
         return self.s, r, done, {}
 
     def render(self, mode='human'):
