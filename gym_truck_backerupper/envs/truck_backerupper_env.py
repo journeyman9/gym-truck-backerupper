@@ -333,43 +333,7 @@ class TruckBackerUpperEnv(gym.Env):
         ''' '''
         self.rendering = True
         f = self.sim_i - 1
-        x_trail = [self.x2[f]+self.L2, self.x2[f], self.x2[f], 
-                  self.x2[f]+self.L2, self.x2[f]+self.L2]
-        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
-                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
-                  self.y2[f]+self.H_t/2]
-
-        corners_trail = np.zeros((5, 3))
-        for j in range(len(x_trail)):
-            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
-                                    self.DCM_g(self.psi_2[f])).dot(
-                                    self.center(-self.x2[f], -self.y2[f])).dot(
-                                    np.array([x_trail[j], y_trail[j], 1]).T)
-
-        x_trac = [self.x1[f]+self.L1, self.x1[f], self.x1[f], 
-                  self.x1[f]+self.L1, self.x1[f]+self.L1]
-        y_trac = [self.y1[f]+self.H_c/2, self.y1[f]+self.H_c/2, 
-                  self.y1[f]-self.H_c/2, self.y1[f]-self.H_c/2, 
-                  self.y1[f]+self.H_c/2]
-
-        corners_trac = np.zeros((5, 3))
-        for j in range(len(x_trac)):
-            corners_trac[j, 0:3] = self.center(self.x1[f], self.y1[f]).dot(
-                                   self.DCM_g(self.psi_1[f])).dot(
-                                   self.center(-self.x1[f], -self.y1[f])).dot(
-                                   np.array([x_trac[j], y_trac[j], 1]).T)
-
-        hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
-                     self.DCM_g(self.psi_1[f])).dot(
-                     self.center(-self.x1[f], -self.y1[f])).dot(
-                     np.array([self.x1[f]-self.h, self.y1[f], 1]).T)
-
-
-        hitch_trail = self.center(self.x2[f], self.y2[f]).dot(
-                      self.DCM_g(self.psi_2[f])).dot(
-                      self.center(-self.x2[f], -self.y2[f])).dot(
-                      np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
-
+        
         ## Steering tyres
         r_tyre = 2.286 / 2
         t_tyre = r_tyre / 3
@@ -458,6 +422,46 @@ class TruckBackerUpperEnv(gym.Env):
                                     self.DCM_g(self.psi_2[f])).dot(
                                     self.center(-t_rr_x, -t_rr_y)).dot(
                                     np.array([rr_x_trailer[j], rr_y_trailer[j], 1]).T)
+        ## Trailer
+        trail = 3.0 
+        x_trail = [self.x2[f]+self.L2+trail, self.x2[f]-trail, self.x2[f]-trail, 
+                  self.x2[f]+self.L2+trail, self.x2[f]+self.L2+trail]
+        y_trail = [self.y2[f]+self.H_t/2, self.y2[f]+self.H_t/2, 
+                  self.y2[f]-self.H_t/2, self.y2[f]-self.H_t/2, 
+                  self.y2[f]+self.H_t/2]
+
+        corners_trail = np.zeros((5, 3))
+        for j in range(len(x_trail)):
+            corners_trail[j, 0:3] = self.center(self.x2[f], self.y2[f]).dot(
+                                    self.DCM_g(self.psi_2[f])).dot(
+                                    self.center(-self.x2[f], -self.y2[f])).dot(
+                                    np.array([x_trail[j], y_trail[j], 1]).T)
+        ## Cab
+        cab = 1.5
+        x_trac = [self.x1[f]+self.L1+cab, self.x1[f]-cab, self.x1[f]-cab, 
+                  self.x1[f]+self.L1+cab, self.x1[f]+self.L1+cab]
+        y_trac = [self.y1[f]+self.H_c/2, self.y1[f]+self.H_c/2, 
+                  self.y1[f]-self.H_c/2, self.y1[f]-self.H_c/2, 
+                  self.y1[f]+self.H_c/2]
+
+        corners_trac = np.zeros((5, 3))
+        for j in range(len(x_trac)):
+            corners_trac[j, 0:3] = self.center(self.x1[f], self.y1[f]).dot(
+                                   self.DCM_g(self.psi_1[f])).dot(
+                                   self.center(-self.x1[f], -self.y1[f])).dot(
+                                   np.array([x_trac[j], y_trac[j], 1]).T)
+        ## Points
+        hitch_trac = self.center(self.x1[f], self.y1[f]).dot(
+                     self.DCM_g(self.psi_1[f])).dot(
+                     self.center(-self.x1[f], -self.y1[f])).dot(
+                     np.array([self.x1[f]-self.h, self.y1[f], 1]).T)
+
+
+        hitch_trail = self.center(self.x2[f], self.y2[f]).dot(
+                      self.DCM_g(self.psi_2[f])).dot(
+                      self.center(-self.x2[f], -self.y2[f])).dot(
+                      np.array([self.x2[f]+self.L2, self.y2[f], 1]).T)
+
         self.ax.clear()
         self.ax.plot(corners_trail[:, 0], corners_trail[:, 1], 'b')
         self.ax.plot(corners_trac[:, 0], corners_trac[:, 1], 'g')
