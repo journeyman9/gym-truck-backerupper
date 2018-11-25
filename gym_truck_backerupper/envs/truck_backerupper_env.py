@@ -65,11 +65,9 @@ class TruckBackerUpperEnv(gym.Env):
         self.L1 = 5.7336
         self.L2 = 12.192
         self.h = -0.2286
-        self.v = -1.12
+        self.v = -25.0 #1.12
         self.u = 0.0
 
-        self.last_index = 0
-        self.last_c_index = 0
         self.look_ahead = 0
 
         self.DCM = lambda ang: np.array([[np.cos(ang), np.sin(ang),  0], 
@@ -77,13 +75,6 @@ class TruckBackerUpperEnv(gym.Env):
                                         [     0     ,      0     ,   1]]) 
         self.seed()
          
-        self.goal = False
-        self.jackknife = False
-        self.out_of_bounds = False
-        self.times_up = False
-        self.min_d = self.max_x - self.min_x
-        self.min_psi = self.max_psi_1.copy()
-
         self.H_c = self.L2 / 3.0
         self.H_t = self.L2 / 3.0
         
@@ -123,6 +114,8 @@ class TruckBackerUpperEnv(gym.Env):
 
     def reset(self):
         ''' '''
+        self.goal_side = 1
+        self.fin = False
         self.sim_i = 1
         self.last_index = 0
         self.last_c_index = 0
@@ -297,14 +290,8 @@ class TruckBackerUpperEnv(gym.Env):
         psi_goal = self.path_planner.safe_minus(self.qg[2], 
                                                 self.psi_2[self.sim_i])
         if d_goal < self.min_d:
-            self.min_d = d_goal
-            self.min_psi = psi_goal
-        self.goal = bool(d_goal <= 0.15 and abs(psi_goal) <= 0.1 and self.sim_i > 10)
-
-        if self.goal:
-            done = True
-            r += 100
-            print('GOAL')
+            self.min_d = d_goal.copy()
+            self.min_psi = psi_goal.copy()
          
         if self.min_d < 3:
             self.goal_side = ((self.dock_y[0] - self.dock_y[-1]) * \
@@ -315,9 +302,16 @@ class TruckBackerUpperEnv(gym.Env):
                              (self.x2[self.sim_i] - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (self.y2[self.sim_i] - self.dock_y[0]))
-            if self.goal_side < 0:
+            if self.goal_side < 0 and self.sim_i > 50:
                 done = True
-                print('Fin.')
+                self.fin = True
+                print('At Loading Dock Bumpers')
+
+        self.goal = bool(self.min_d <= 0.15 and abs(self.min_psi) <= 0.1 
+                         and self.fin)       
+        if self.goal:
+            r += 100
+            print('GOAL')
 
         self.s = self.get_error(self.sim_i)
 
