@@ -57,7 +57,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.rendering = False
         
         self.t0 = 0.0
-        self.t_final = 250.0
+        self.t_final = 160.0
         self.dt = .010
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
@@ -269,11 +269,11 @@ class TruckBackerUpperEnv(gym.Env):
         if self.theta > self.max_hitch:
             self.jackknife = True
             done = True
-            print('Jackknife')
+            #print('Jackknife')
         elif self.theta < -self.max_hitch:
             self.jackknife = True
             done = True
-            print('Jackknife')
+            #print('Jackknife')
         else:
             self.jackknife = False
 
@@ -286,7 +286,7 @@ class TruckBackerUpperEnv(gym.Env):
             self.y2[self.sim_i] >= self.max_y or
             self.y2[self.sim_i] <= self.min_y):
             self.out_of_bounds = True
-            print('Out of Bounds')
+            #print('Out of Bounds')
             done = True
 
         t_x, t_y, _ = np.array([self.x2[self.sim_i], self.y2[self.sim_i], 1]).T + \
@@ -310,15 +310,16 @@ class TruckBackerUpperEnv(gym.Env):
                              (t_x - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (t_y - self.dock_y[0]))
-            if self.goal_side < 0 and self.sim_i > 100:
+            if self.goal_side < 0 and self.sim_i > 3500:
                 done = True
                 self.fin = True
-                print('At Loading Dock Bumpers')
+                #print('At Loading Dock Bumpers')
 
         self.goal = bool(self.min_d <= 0.15 and abs(self.min_psi) <= 0.1 
                          and self.fin)       
         if self.goal:
-            print('GOAL')
+            ''' '''
+            #print('GOAL')
 
         self.s = self.get_error(self.sim_i)
 
@@ -326,16 +327,23 @@ class TruckBackerUpperEnv(gym.Env):
         if self.sim_i >= self.num_steps:
             self.times_up = True
             done = True
-            print('Times Up')
+            #print('Times Up')
 
         if done:
-            print('d = {:.3f} m and psi = {:.3f} degrees'.format(self.min_d, 
-                                         np.degrees(self.min_psi)))
+            ''' '''
+            #print('d = {:.3f} m and psi = {:.3f} degrees'.format(self.min_d, 
+            #                             np.degrees(self.min_psi)))
+
         r = -1 + self.goal * 100 - self.jackknife * 10 - \
             self.out_of_bounds * 10 - self.times_up * 10 + \
-            bool(self.s[0] < 0.1) * 1 + bool(self.s[1] < 0.1) * 1 + \
-            bool(self.s[2] < 0.15) * 1
-        return self.s, r, done, self.t[self.sim_i-1]
+            bool(abs(self.s[0]) < 0.1) * 1 + bool(abs(self.s[1]) < 0.1) * 1 + \
+            bool(abs(self.s[2]) < 0.15) * 1
+        return self.s, r, done, {'goal' : self.goal, 'jackknife': self.jackknife,
+                                 'out_of_bounds' : self.out_of_bounds,
+                                 'times_up' : self.times_up, 'fin' : self.fin,
+                                 'min_d' : self.min_d, 
+                                 'min_psi' : np.degrees(self.min_psi),
+                                 't' : self.t[self.sim_i-1]}
 
     def render(self, mode='human'):
         ''' '''
