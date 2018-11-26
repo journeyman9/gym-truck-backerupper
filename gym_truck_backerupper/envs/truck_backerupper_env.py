@@ -297,7 +297,7 @@ class TruckBackerUpperEnv(gym.Env):
             self.min_d = d_goal.copy()
             self.min_psi = psi_goal.copy()
          
-        if self.min_d < 3:
+        if d_goal < 3:
             self.goal_side = ((self.dock_y[0] - self.dock_y[-1]) * \
                              (self.track_vector[-100, 0] - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
@@ -306,7 +306,7 @@ class TruckBackerUpperEnv(gym.Env):
                              (t_x - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (t_y - self.dock_y[0]))
-            if self.goal_side < 0 and self.sim_i > 3500:
+            if self.goal_side < 0 and self.sim_i > self.t_final:
                 done = True
                 self.fin = True
 
