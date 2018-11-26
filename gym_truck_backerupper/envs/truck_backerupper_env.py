@@ -78,9 +78,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.H_c = self.L2 / 3.0
         self.H_t = self.L2 / 3.0
         self.trail = 2.0 
-        
         self.fig, self.ax = plt.subplots(1, 1, figsize=(10, 10))
-
+        
         self.DCM_g = lambda ang: np.array([[np.cos(ang), -np.sin(ang), 0], 
                                            [np.sin(ang), np.cos(ang),  0],
                                            [     0     ,      0     ,  1]])
@@ -490,6 +489,7 @@ class TruckBackerUpperEnv(gym.Env):
     def close(self):
         ''' '''
         plt.close('all')
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(10, 10))
 
     def lookahead(self, look_ahead):
         self.look_ahead = look_ahead
