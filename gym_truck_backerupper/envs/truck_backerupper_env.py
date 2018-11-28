@@ -5,6 +5,7 @@ from gym import error, spaces
 from gym import utils
 from gym.utils import seeding
 import scipy.integrate as spi
+import scipy.stats as stats
 from gym_truck_backerupper.envs.DubinsPark import DubinsPark
 import matplotlib.pyplot as plt
 import pdb
@@ -62,10 +63,10 @@ class TruckBackerUpperEnv(gym.Env):
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
         
-        self.L1 = 5.7336
-        self.L2 = 12.192
-        self.h = -0.2286
-        self.v = -1.12
+        self.L1 = 5.74
+        self.L2 = 10.192
+        self.h = -0.29
+        self.v = -2.012
         self.u = 0.0
 
         self.look_ahead = 0
@@ -242,9 +243,14 @@ class TruckBackerUpperEnv(gym.Env):
         self.offset = True
         print('Manual offset inputted')
 
-    def manual_velocity(self, v):
+    def manual_velocity(self, v=-2.012):
         self.v = v
         print('Manual velocity inputted')
+
+    def manual_params(self, L2=12.2, h=-0.25):
+        self.L2 = L2
+        self.h = h
+        print('Changing Trailer Geometry')
 
     def step(self, a):
         ''' '''
