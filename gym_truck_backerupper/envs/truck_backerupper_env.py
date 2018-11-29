@@ -44,10 +44,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.min_action = -np.radians(45.0)
         self.max_action = np.radians(45.0)
 
-        self.low_state = np.array([self.min_psi_1, self.min_psi_2, self.min_y,
-                                  self.min_curv])
-        self.high_state = np.array([self.max_psi_1, self.max_psi_2, self.max_y,
-                                   self.max_curv])
+        self.low_state = np.array([self.min_psi_1, self.min_psi_2, self.min_y])
+        self.high_state = np.array([self.max_psi_1, self.max_psi_2, self.max_y])
 
         self.action_space = spaces.Box(low=self.min_action,
                                        high=self.max_action, shape=(1,))
@@ -58,7 +56,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.rendering = False
         
         self.t0 = 0.0
-        self.t_final = 160.0
+        self.t_final = 18.0 #160.0
         self.dt = .010
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
@@ -312,7 +310,7 @@ class TruckBackerUpperEnv(gym.Env):
                              (t_x - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (t_y - self.dock_y[0]))
-            if self.goal_side < 0 and self.sim_i > self.t_final:
+            if self.goal_side < 0 and self.sim_i > 150:
                 done = True
                 self.fin = True
 
@@ -573,6 +571,5 @@ class TruckBackerUpperEnv(gym.Env):
                                                np.array([self.x2_e[i], 
                                                self.y2_e[i],
                                                self.psi_2[i]]).T)
-        self.curv[i] = self.track_vector[self.last_c_index, 2]
-        return np.array([self.psi_1_e[i], self.psi_2_e[i], self.error[i, 1], 
-                         self.L1 * self.curv[i]])
+        self.curv[i] = self.track_vector[self.last_c_index, 2] # remember to do curv * L
+        return np.array([self.psi_1_e[i], self.psi_2_e[i], self.error[i, 1]])
