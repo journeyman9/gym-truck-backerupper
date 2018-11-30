@@ -69,6 +69,11 @@ class TruckBackerUpperEnv(gym.Env):
 
         self.look_ahead = 0
 
+        self.Q = np.array([[0.0, 0.0, 0.0],
+                           [0.0, 1.0, 0.0],
+                           [0.0, 0.0, 1.0]])
+        self.R = 1.0
+
         self.DCM = lambda ang: np.array([[np.cos(ang), np.sin(ang),  0], 
                                         [-np.sin(ang), np.cos(ang),  0],
                                         [     0     ,      0     ,   1]]) 
@@ -167,6 +172,10 @@ class TruckBackerUpperEnv(gym.Env):
                 self.y_IC = self.y_IC_mod
                 self.psi_2_IC = np.radians(self.psi_2_IC_mod) + self.track_vector[0, 3]
                 self.hitch_IC = np.radians(self.hitch_IC_mod)
+            
+
+            self.d_start = self.path_planner.distance([self.q0[0], self.q0[1]], 
+                                                      [self.qg[0], self.qg[1]])
 
             ## normal to goal loading dock
             self.dx = 100.0 * (self.track_vector[-1, 0] - self.track_vector[-2, 0])
@@ -254,9 +263,9 @@ class TruckBackerUpperEnv(gym.Env):
         ''' '''
         done = False
         if a > self.max_action:
-            a = self.max_action
+            a = self.max_action.reshape(1,)
         elif a < self.min_action:
-            a = self.min_action
+            a = self.min_action.reshape(1,)
 
         self.solver.set_f_params(a)
         self.solver.integrate(self.solver.t + self.dt)
@@ -323,12 +332,14 @@ class TruckBackerUpperEnv(gym.Env):
         if self.sim_i >= self.num_steps:
             self.times_up = True
             done = True
-
-        r = -0.1 + self.goal * 100 - self.jackknife * 100 - \
-            self.out_of_bounds * 10 - self.times_up * 10 + \
-            + stats.norm.pdf(self.s[0], 0.0, scale=0.4) + \
-            + stats.norm.pdf(self.s[1], 0.0, scale=0.4) + \
-            + stats.norm.pdf(self.s[2], 0.0, scale=0.4)
+        
+        r_d = 100 * (self.d_start / self.max_x) * (1 / 3) * stats.norm.pdf(d_goal, 
+              0.0, scale=self.d_start/3)
+        J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt
+        #J = abs(self.s[1]) + abs(self.s[2])
+        #print('r_d = {}, J = {}'.format(r_d, J))
+        r = -0.1 + r_d - self.jackknife * 100 - \
+            self.out_of_bounds * 10 - self.times_up * 10  - J
         return self.s, r, done, {'goal' : self.goal, 'jackknife': self.jackknife,
                                  'out_of_bounds' : self.out_of_bounds,
                                  'times_up' : self.times_up, 'fin' : self.fin,
