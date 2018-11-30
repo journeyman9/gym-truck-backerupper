@@ -324,10 +324,11 @@ class TruckBackerUpperEnv(gym.Env):
             self.times_up = True
             done = True
 
-        r = -1 + self.goal * 100 - self.jackknife * 10 - \
+        r = -0.1 + self.goal * 100 - self.jackknife * 100 - \
             self.out_of_bounds * 10 - self.times_up * 10 + \
-            bool(abs(self.s[0]) < 0.362) * 1 + bool(abs(self.s[1]) < 0.102) * 1 + \
-            bool(abs(self.s[2]) < 0.724) * 1
+            + stats.norm.pdf(self.s[0], 0.0, scale=0.4) + \
+            + stats.norm.pdf(self.s[1], 0.0, scale=0.4) + \
+            + stats.norm.pdf(self.s[2], 0.0, scale=0.4)
         return self.s, r, done, {'goal' : self.goal, 'jackknife': self.jackknife,
                                  'out_of_bounds' : self.out_of_bounds,
                                  'times_up' : self.times_up, 'fin' : self.fin,
