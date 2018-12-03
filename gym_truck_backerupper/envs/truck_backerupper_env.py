@@ -103,13 +103,13 @@ class TruckBackerUpperEnv(gym.Env):
         xd[1] = (self.v / self.L2) * np.sin(self.theta) -\
                 (self.h / self.L2) * xd[0] * np.cos(self.theta)
         
-        vt = self.v * np.cos(self.theta) + self.h * xd[0] * np.sin(self.theta)
+        self.vt = self.v * np.cos(self.theta) + self.h * xd[0] * np.sin(self.theta)
 
         xd[2] = self.v * np.cos(x[0])
         xd[3] = self.v * np.sin(x[0])
 
-        xd[4] = vt * np.cos(x[1])
-        xd[5] = vt * np.sin(x[1])
+        xd[4] = self.vt * np.cos(x[1])
+        xd[5] = self.vt * np.sin(x[1])
 
         return xd
 
@@ -310,7 +310,7 @@ class TruckBackerUpperEnv(gym.Env):
             self.min_d = d_goal.copy()
             self.min_psi = psi_goal.copy()
          
-        if d_goal < 3:
+        if d_goal < 5.0:
             self.goal_side = ((self.dock_y[0] - self.dock_y[-1]) * \
                              (self.track_vector[-100, 0] - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
@@ -332,14 +332,11 @@ class TruckBackerUpperEnv(gym.Env):
         if self.sim_i >= self.num_steps:
             self.times_up = True
             done = True
-        
-        r_d = 100 * (self.d_start / self.max_x) * (1 / 3) * stats.norm.pdf(d_goal, 
-              0.0, scale=self.d_start/3)
-        J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt
-        #J = abs(self.s[1]) + abs(self.s[2])
-        #print('r_d = {}, J = {}'.format(r_d, J))
-        r = -0.1 + r_d - self.jackknife * 100 - \
-            self.out_of_bounds * 10 - self.times_up * 10  - J
+ 
+        #J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt
+        r = - self.jackknife * 100 - self.out_of_bounds * 100 - self.times_up * 100 \
+            + 1.0 - 0.5 * ((abs(self.s[2]) / self.max_x) ** 0.4) \
+            - 0.5 * ((abs(self.s[1]) / self.max_psi_2) ** 0.4)
         return self.s, r, done, {'goal' : self.goal, 'jackknife': self.jackknife,
                                  'out_of_bounds' : self.out_of_bounds,
                                  'times_up' : self.times_up, 'fin' : self.fin,
