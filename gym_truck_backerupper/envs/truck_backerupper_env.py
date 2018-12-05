@@ -56,15 +56,15 @@ class TruckBackerUpperEnv(gym.Env):
         self.rendering = False
         
         self.t0 = 0.0
-        self.t_final = 3.0 #160.0
-        self.dt = .010
+        self.t_final = 16.0
+        self.dt = .120
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
         
         self.L1 = 5.74
         self.L2 = 10.192
         self.h = -0.29
-        self.v = -15.0#-2.012
+        self.v = -2.012
         self.u = 0.0
 
         self.look_ahead = 0
@@ -319,7 +319,7 @@ class TruckBackerUpperEnv(gym.Env):
                              (t_x - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (t_y - self.dock_y[0]))
-            if self.goal_side < 0 and self.sim_i > 150:
+            if self.goal_side < 0 and self.t[self.sim_i] > 1.0:
                 done = True
                 self.fin = True
 
@@ -335,12 +335,12 @@ class TruckBackerUpperEnv(gym.Env):
  
         r = self.goal * 100 - self.jackknife * 100 \
             - self.out_of_bounds * 100 - self.times_up * 100
-        
+         
         ## Reward Scheme A
         r += 1.0
         r -= 0.5 * (abs(self.s[2]) / 5.0) ** 0.4
         r -= 0.5 * (abs(self.s[1]) / np.radians(45)) ** 0.4 
-
+        
         '''
         ## Reward Scheme B
         sigma_d = 5.0 / 3.0
@@ -348,19 +348,16 @@ class TruckBackerUpperEnv(gym.Env):
         r += 0.5 * np.exp(-(self.s[2] - 0.0) ** 2 / (2 * (sigma_d ** 2))) + \
              0.5 * np.exp(-(self.s[1] - 0.0) ** 2 / (2 * (sigma_psi ** 2)))
         '''
-
         '''
         ## Reward Scheme C
         r += np.cos(self.s[1]) - \
              (1.0 / (1.0 + np.exp(-4.0 * (abs(self.s[2]) - 0.5 * 5.0))))
         '''
-
-        '''
+        ''' 
         ## Reward Scheme D
         J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt
         r -= J
         '''
-
         '''
         ## Reward Scheme E
         sigma_d = 5.0 / 3.0
