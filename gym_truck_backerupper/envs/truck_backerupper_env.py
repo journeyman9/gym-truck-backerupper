@@ -56,7 +56,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.rendering = False
         
         self.t0 = 0.0
-        self.t_final = 16.0
+        self.t_final = 160.0
         self.dt = .120
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
@@ -319,7 +319,7 @@ class TruckBackerUpperEnv(gym.Env):
                              (t_x - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
                              (t_y - self.dock_y[0]))
-            if self.goal_side < 0 and self.t[self.sim_i] > 1.0:
+            if self.goal_side < 0 and self.t[self.sim_i] > 10.0:
                 done = True
                 self.fin = True
 
