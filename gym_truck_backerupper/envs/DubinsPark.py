@@ -34,12 +34,12 @@ class DubinsPark:
     def generate(self, q0, qg):
         self.q0 = q0
         self.qg = qg
-
+        
         ## Modify dubins to work for a straight offset from goal
         self.q1 = self.qg.copy()
         self.q1[0] -= 2.0 * self.turning_radius * np.cos(self.q1[2])
         self.q1[1] -= 2.0 * self.turning_radius * np.sin(self.q1[2])
-
+        
         # Dubins
         path = dubins.shortest_path(self.q0, self.q1, self.turning_radius)
         qs, dist_dubins = path.sample_many(self.step_size)
