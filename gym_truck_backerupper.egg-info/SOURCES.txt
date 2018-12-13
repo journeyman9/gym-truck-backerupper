@@ -1,6 +1,0 @@
-README.md
-gym_truck_backerupper.egg-info/PKG-INFO
-gym_truck_backerupper.egg-info/SOURCES.txt
-gym_truck_backerupper.egg-info/dependency_links.txt
-gym_truck_backerupper.egg-info/requires.txt
-gym_truck_backerupper.egg-info/top_level.txt

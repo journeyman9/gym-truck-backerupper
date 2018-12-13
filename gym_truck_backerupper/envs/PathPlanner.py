@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-class DubinsPark:
+class PathPlanner:
     ''' Class to generate paths using Dubins Curves with randomized 
         initial/goal positions and orientations
         Journey McDowell (c) 2018 
