@@ -55,7 +55,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.rendering = False
         
         self.t0 = 0.0
-        self.t_final = 16.0 #160.0
+        self.t_final = 160.0
         self.dt = .080
         self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
         self.sim_i = 1
