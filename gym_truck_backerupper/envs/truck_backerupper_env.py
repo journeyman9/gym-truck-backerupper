@@ -366,12 +366,14 @@ class TruckBackerUpperEnv(gym.Env):
              0.5 * np.exp(-(self.s[1] - 0.0) ** 2 / (2 * (sigma_psi ** 2)))
         r -= J
         '''
+        
         ## Reward Scheme F
         r += 1.0
         r -= 0.5 * (abs(self.s[2]) / 5.0) ** 0.4
         r -= 0.5 * (abs(self.s[1]) / np.radians(45)) ** 0.4 
         J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt 
         r -= J
+        
         return self.s, r, done, {'goal' : self.goal, 'jackknife': self.jackknife,
                                  'out_of_bounds' : self.out_of_bounds,
                                  'times_up' : self.times_up, 'fin' : self.fin,
