@@ -149,92 +149,105 @@ class TruckBackerUpperEnv(gym.Env):
 
         self.track_vector = self.path_planner.generate(self.q0, self.qg)
 
-        if (max(self.track_vector[:, 0]) >= self.max_x - self.L2 or
+        while (max(self.track_vector[:, 0]) >= self.max_x - self.L2 or
             min(self.track_vector[:, 0]) <= self.min_x + self.L2 or
             max(self.track_vector[:, 1]) >= self.max_y - self.L2 or
             min(self.track_vector[:, 1]) <= self.min_y + self.L2):
             #print('Dubins spawned out of bounds, respawning new track')
-            self.bound_reset()
-        else: 
-            if self.v < 0:
-                #print('Going Backwards!')
-                self.track_vector[:, 3] += np.pi
-                self.q0[2] += np.pi
-                self.qg[2] += np.pi
-                self.track_vector[:, 2] *= -1
+        
+            if self.manual_track == False: 
+                self.x_start = np.random.randint(self.min_x, self.max_x)
+                self.y_start = np.random.randint(self.min_y, self.max_y)
+                self.psi_start = np.radians(np.random.randint(
+                                            np.degrees(self.min_psi_2), 
+                                            np.degrees(self.max_psi_2)))
 
-            if self.offset == False:
-                self.y_IC = 0
-                self.psi_2_IC = np.radians(0) + self.track_vector[0, 3]
-                self.hitch_IC = np.radians(0)
-            else:
-                self.y_IC = self.y_IC_mod
-                self.psi_2_IC = np.radians(self.psi_2_IC_mod) + self.track_vector[0, 3]
-                self.hitch_IC = np.radians(self.hitch_IC_mod)
+                self.x_goal = np.random.randint(self.min_x, self.max_x)
+                self.y_goal = np.random.randint(self.min_y, self.max_y)
+                self.psi_goal = np.radians(np.random.randint(
+                                           np.degrees(self.min_psi_2),
+                                           np.degrees(self.max_psi_2)))
+
+                self.q0 = [self.x_start, self.y_start, self.psi_start]
+                self.qg = [self.x_goal, self.y_goal, self.psi_goal]
+
+            self.track_vector = self.path_planner.generate(self.q0, self.qg)
             
+        if self.v < 0:
+            #print('Going Backwards!')
+            self.track_vector[:, 3] += np.pi
+            self.q0[2] += np.pi
+            self.qg[2] += np.pi
+            self.track_vector[:, 2] *= -1
 
-            self.d_start = self.path_planner.distance([self.q0[0], self.q0[1]], 
-                                                      [self.qg[0], self.qg[1]])
+        if self.offset == False:
+            self.y_IC = 0
+            self.psi_2_IC = np.radians(0) + self.track_vector[0, 3]
+            self.hitch_IC = np.radians(0)
+        else:
+            self.y_IC = self.y_IC_mod
+            self.psi_2_IC = np.radians(self.psi_2_IC_mod) + self.track_vector[0, 3]
+            self.hitch_IC = np.radians(self.hitch_IC_mod)
+        
 
-            ## normal to goal loading dock
-            self.dx = 100.0 * (self.track_vector[-1, 0] - self.track_vector[-2, 0])
-            self.dy = 100.0 * (self.track_vector[-1, 1] - self.track_vector[-2, 1])
-            self.dock_x = np.linspace(-self.dy, self.dy, 5) + self.qg[0]
-            self.dock_y = np.linspace(self.dx, -self.dx, 5) + self.qg[1]
-            
-            self.psi_1_IC = self.hitch_IC + self.psi_2_IC
-            self.curv_IC = self.track_vector[0, 4]
+        self.d_start = self.path_planner.distance([self.q0[0], self.q0[1]], 
+                                                  [self.qg[0], self.qg[1]])
 
-            self.trailerIC = [self.track_vector[0, 0] - 
-                              self.y_IC*np.sin(self.track_vector[0, 3]),
-                              self.track_vector[0, 1] + 
-                              self.y_IC*np.cos(self.track_vector[0, 3])]
-            self.tractorIC = [self.trailerIC[0] + self.L2*np.cos(self.psi_2_IC) + 
-                              self.h*np.cos(self.psi_1_IC),
-                              self.trailerIC[1] + self.L2*np.sin(self.psi_2_IC) + 
-                              self.h*np.sin(self.psi_1_IC)]
-            self.ICs = [self.psi_1_IC, self.psi_2_IC,
-                        self.tractorIC[0], self.tractorIC[1],
-                        self.trailerIC[0], self.trailerIC[1]]
+        ## normal to goal loading dock
+        self.dx = 100.0 * (self.track_vector[-1, 0] - self.track_vector[-2, 0])
+        self.dy = 100.0 * (self.track_vector[-1, 1] - self.track_vector[-2, 1])
+        self.dock_x = np.linspace(-self.dy, self.dy, 5) + self.qg[0]
+        self.dock_y = np.linspace(self.dx, -self.dx, 5) + self.qg[1]
+        
+        self.psi_1_IC = self.hitch_IC + self.psi_2_IC
+        self.curv_IC = self.track_vector[0, 4]
 
-            self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
-            self.solver.set_initial_value(self.ICs, self.t0)
-            self.solver.set_f_params(self.u)
+        self.trailerIC = [self.track_vector[0, 0] - 
+                          self.y_IC*np.sin(self.track_vector[0, 3]),
+                          self.track_vector[0, 1] + 
+                          self.y_IC*np.cos(self.track_vector[0, 3])]
+        self.tractorIC = [self.trailerIC[0] + self.L2*np.cos(self.psi_2_IC) + 
+                          self.h*np.cos(self.psi_1_IC),
+                          self.trailerIC[1] + self.L2*np.sin(self.psi_2_IC) + 
+                          self.h*np.sin(self.psi_1_IC)]
+        self.ICs = [self.psi_1_IC, self.psi_2_IC,
+                    self.tractorIC[0], self.tractorIC[1],
+                    self.trailerIC[0], self.trailerIC[1]]
 
-            self.t = np.zeros((self.num_steps))
-            self.psi_1 = np.zeros((self.num_steps))
-            self.psi_2 = np.zeros((self.num_steps))
-            self.x1 = np.zeros((self.num_steps))
-            self.y1 = np.zeros((self.num_steps))
-            self.x2 = np.zeros((self.num_steps))
-            self.y2 = np.zeros((self.num_steps))
-            
-            self.psi_1[0] = self.psi_1_IC.copy()
-            self.psi_2[0] = self.psi_2_IC.copy()
-            self.x1[0] = self.tractorIC[0].copy()
-            self.y1[0] = self.tractorIC[1].copy()
-            self.x2[0] = self.trailerIC[0].copy()
-            self.y2[0] = self.trailerIC[1].copy()
+        self.solver = spi.ode(self.kinematic_model).set_integrator('dopri5')
+        self.solver.set_initial_value(self.ICs, self.t0)
+        self.solver.set_f_params(self.u)
 
-            self.r_x2 = np.zeros((self.num_steps))
-            self.r_y2 = np.zeros((self.num_steps))
-            self.r_psi_2 = np.zeros((self.num_steps))
-            self.r_psi_1 = np.zeros((self.num_steps))
+        self.t = np.zeros((self.num_steps))
+        self.psi_1 = np.zeros((self.num_steps))
+        self.psi_2 = np.zeros((self.num_steps))
+        self.x1 = np.zeros((self.num_steps))
+        self.y1 = np.zeros((self.num_steps))
+        self.x2 = np.zeros((self.num_steps))
+        self.y2 = np.zeros((self.num_steps))
+        
+        self.psi_1[0] = self.psi_1_IC.copy()
+        self.psi_2[0] = self.psi_2_IC.copy()
+        self.x1[0] = self.tractorIC[0].copy()
+        self.y1[0] = self.tractorIC[1].copy()
+        self.x2[0] = self.trailerIC[0].copy()
+        self.y2[0] = self.trailerIC[1].copy()
 
-            self.psi_2_e = np.zeros((self.num_steps))
-            self.psi_1_e = np.zeros((self.num_steps))
-            self.x2_e = np.zeros((self.num_steps))
-            self.y2_e = np.zeros((self.num_steps))
+        self.r_x2 = np.zeros((self.num_steps))
+        self.r_y2 = np.zeros((self.num_steps))
+        self.r_psi_2 = np.zeros((self.num_steps))
+        self.r_psi_1 = np.zeros((self.num_steps))
 
-            self.error = np.zeros((self.num_steps, 3))
-            self.curv = np.zeros((self.num_steps))
+        self.psi_2_e = np.zeros((self.num_steps))
+        self.psi_1_e = np.zeros((self.num_steps))
+        self.x2_e = np.zeros((self.num_steps))
+        self.y2_e = np.zeros((self.num_steps))
 
-            self.s = self.get_error(0)
+        self.error = np.zeros((self.num_steps, 3))
+        self.curv = np.zeros((self.num_steps))
+
+        self.s = self.get_error(0)
         return self.s
-
-    def bound_reset(self):
-        ''' '''
-        self.reset()
 
     def manual_course(self, q0, qg):
         self.q0 = np.array([q0[0], q0[1], np.radians(q0[2])])
