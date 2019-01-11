@@ -121,6 +121,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.u = 0
         self.goal_side = 1
         self.fin = False
+        self.dist_too_large = False
+        self.angle_too_large = False
         self.sim_i = 1
         self.last_index = 0
         self.last_c_index = 0
@@ -337,8 +339,21 @@ class TruckBackerUpperEnv(gym.Env):
 
         self.goal = bool(self.min_d <= 0.15 and abs(self.min_psi) <= 0.1 
                          and self.fin)       
-
+        
         self.s = self.get_error(self.sim_i)
+         
+        ## Error too large
+        self.audit_error = self.path_planner.distance([self.x2[self.sim_i],
+                                                      self.y2[self.sim_i]],
+                                        [self.track_vector[self.last_index, 0],
+                                        self.track_vector[self.last_index, 1]])
+        if self.audit_error >= 5.0:
+            done = True
+            self.dist_too_large = True
+
+        if abs(self.s[1]) >= np.radians(45):
+            done = True
+            self.angle_too_large = True
 
         self.sim_i += 1
         if self.sim_i >= self.num_steps:
@@ -346,7 +361,8 @@ class TruckBackerUpperEnv(gym.Env):
             done = True
  
         r = self.goal * 100 - self.jackknife * 100 \
-            - self.out_of_bounds * 100 - self.times_up * 100
+            - self.out_of_bounds * 100 - self.times_up * 100 \
+            - self.dist_too_large * 100 - self.angle_too_large * 100
         ''' 
         ## Reward Scheme A
         r += 1.0
@@ -392,6 +408,8 @@ class TruckBackerUpperEnv(gym.Env):
                                  'times_up' : self.times_up, 'fin' : self.fin,
                                  'min_d' : self.min_d, 
                                  'min_psi' : np.degrees(self.min_psi),
+                                 'dist_too_large' : self.dist_too_large,
+                                 'angle_too_large' : self.angle_too_large,
                                  't' : self.t[self.sim_i-1]}
 
     def render(self, mode='human'):
