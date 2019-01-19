@@ -407,7 +407,7 @@ class TruckBackerUpperEnv(gym.Env):
                                  'out_of_bounds' : self.out_of_bounds,
                                  'times_up' : self.times_up, 'fin' : self.fin,
                                  'min_d' : self.min_d, 
-                                 'min_psi' : np.degrees(self.min_psi),
+                                 'min_psi' : self.min_psi,
                                  'dist_too_large' : self.dist_too_large,
                                  'angle_too_large' : self.angle_too_large,
                                  't' : self.t[self.sim_i-1]}
