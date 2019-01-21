@@ -150,13 +150,15 @@ class TruckBackerUpperEnv(gym.Env):
             self.qg = [self.x_goal, self.y_goal, self.psi_goal]
 
         self.track_vector = self.path_planner.generate(self.q0, self.qg)
-
+        
         while (max(self.track_vector[:, 0]) >= self.max_x - self.L2 or
             min(self.track_vector[:, 0]) <= self.min_x + self.L2 or
             max(self.track_vector[:, 1]) >= self.max_y - self.L2 or
-            min(self.track_vector[:, 1]) <= self.min_y + self.L2):
+            min(self.track_vector[:, 1]) <= self.min_y + self.L2 or 
+            any(self.path_planner.distance(pt, [self.track_vector[-1, 0],
+                self.track_vector[-1, 1]]) <= 5.0 for pt in \
+                self.track_vector[:-105, 0:2])):
             #print('Dubins spawned out of bounds, respawning new track')
-        
             if self.manual_track == False: 
                 self.x_start = np.random.randint(self.min_x, self.max_x)
                 self.y_start = np.random.randint(self.min_y, self.max_y)
@@ -324,7 +326,7 @@ class TruckBackerUpperEnv(gym.Env):
             self.min_d = d_goal.copy()
             self.min_psi = psi_goal.copy()
          
-        if d_goal < 5.0:
+        if d_goal < 5.0 and abs(psi_goal) < np.radians(45):
             self.goal_side = ((self.dock_y[0] - self.dock_y[-1]) * \
                              (self.track_vector[-100, 0] - self.dock_x[0]) + \
                              (self.dock_x[-1] - self.dock_x[0]) * \
