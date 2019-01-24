@@ -63,7 +63,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.L1 = 5.74
         self.L2 = 10.192
         self.h = -0.29
-        self.v = -2.012
+        self.v1x = -2.012
         self.u = 0.0
 
         self.look_ahead = 0
@@ -95,20 +95,21 @@ class TruckBackerUpperEnv(gym.Env):
         self.u = u
         n = len(x)
         xd = np.zeros((n))
-        xd[0] = (self.v / self.L1) * np.tan(self.u)
+        xd[0] = (self.v1x / self.L1) * np.tan(self.u)
 
         self.theta = x[0] - x[1]
 
-        xd[1] = (self.v / self.L2) * np.sin(self.theta) -\
+        xd[1] = (self.v1x / self.L2) * np.sin(self.theta) -\
                 (self.h / self.L2) * xd[0] * np.cos(self.theta)
         
-        self.vt = self.v * np.cos(self.theta) + self.h * xd[0] * np.sin(self.theta)
+        self.v2x = self.v1x * np.cos(self.theta) + self.h * xd[0] * np.sin(
+                   self.theta)
 
-        xd[2] = self.v * np.cos(x[0])
-        xd[3] = self.v * np.sin(x[0])
+        xd[2] = self.v1x * np.cos(x[0])
+        xd[3] = self.v1x * np.sin(x[0])
 
-        xd[4] = self.vt * np.cos(x[1])
-        xd[5] = self.vt * np.sin(x[1])
+        xd[4] = self.v2x * np.cos(x[1])
+        xd[5] = self.v2x * np.sin(x[1])
 
         return xd
 
@@ -177,7 +178,7 @@ class TruckBackerUpperEnv(gym.Env):
 
             self.track_vector = self.path_planner.generate(self.q0, self.qg)
             
-        if self.v < 0:
+        if self.v1x < 0:
             #print('Going Backwards!')
             self.track_vector[:, 3] += np.pi
             self.q0[2] += np.pi
@@ -267,7 +268,7 @@ class TruckBackerUpperEnv(gym.Env):
         print('Manual offset inputted')
 
     def manual_velocity(self, v=-2.012):
-        self.v = v
+        self.v1x = v
         print('Manual velocity inputted')
 
     def manual_params(self, L2=12.2, h=-0.25):
