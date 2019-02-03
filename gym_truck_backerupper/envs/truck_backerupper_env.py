@@ -66,6 +66,8 @@ class TruckBackerUpperEnv(gym.Env):
         self.v1x = -2.012
         self.u = 0.0
 
+        self.tog = 0
+
         self.look_ahead = 0
 
         self.Q = np.array([[0.0, 0.0, 0.0],
@@ -152,10 +154,10 @@ class TruckBackerUpperEnv(gym.Env):
 
         self.track_vector = self.path_planner.generate(self.q0, self.qg)
         
-        while (max(self.track_vector[:, 0]) >= self.max_x - self.L2 or
-            min(self.track_vector[:, 0]) <= self.min_x + self.L2 or
-            max(self.track_vector[:, 1]) >= self.max_y - self.L2 or
-            min(self.track_vector[:, 1]) <= self.min_y + self.L2 or 
+        while (max(self.track_vector[:, 0]) >= self.max_x - 12.192 or
+            min(self.track_vector[:, 0]) <= self.min_x + 12.192 or
+            max(self.track_vector[:, 1]) >= self.max_y - 12.192 or
+            min(self.track_vector[:, 1]) <= self.min_y + 12.192 or 
             any(self.path_planner.distance(pt, [self.track_vector[-1, 0],
                 self.track_vector[-1, 1]]) <= 5.0 for pt in \
                 self.track_vector[:-105, 0:2])):
@@ -568,6 +570,11 @@ class TruckBackerUpperEnv(gym.Env):
 
         self.ax.set_xlim(self.min_x, self.max_x)
         self.ax.set_ylim(self.min_y, self.max_y)
+        
+        if self.tog:
+            plt.text(-30, -30, 'LQR', fontsize=22)
+        else:
+            plt.text(-30, -30, 'DDPG', fontsize=22)
         plt.pause(np.finfo(np.float32).eps)
         
     def close(self):
