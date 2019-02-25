@@ -154,10 +154,10 @@ class TruckBackerUpperEnv(gym.Env):
 
         self.track_vector = self.path_planner.generate(self.q0, self.qg)
         
-        while (max(self.track_vector[:, 0]) >= self.max_x - 12.192 or
-            min(self.track_vector[:, 0]) <= self.min_x + 12.192 or
-            max(self.track_vector[:, 1]) >= self.max_y - 12.192 or
-            min(self.track_vector[:, 1]) <= self.min_y + 12.192 or 
+        while (max(self.track_vector[:, 0]) >= self.max_x - 10.192 or
+            min(self.track_vector[:, 0]) <= self.min_x + 10.192 or
+            max(self.track_vector[:, 1]) >= self.max_y - 10.192 or
+            min(self.track_vector[:, 1]) <= self.min_y + 10.192 or 
             any(self.path_planner.distance(pt, [self.track_vector[-1, 0],
                 self.track_vector[-1, 1]]) <= 5.0 for pt in \
                 self.track_vector[:-105, 0:2])):
