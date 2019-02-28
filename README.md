@@ -2,7 +2,7 @@
 
 The objective is to make the agent back up a tractor and trailer to the loading dock within 15cm and 0.1 radians, without jackknifing. Jackknifing is considered when the (hitch) angle between the tractor and trailer is >= 90 degrees. Random tracks are spawned using a modified Dubins Curves. The environment is built using the OpenAI gym format, so the environment was designed with reinforcement learning in mind--but the method for control is left up to the user.
 
-![truck-backer-upper-gif](https://imgur.com/a/AZqucKn)
+![truck-backer-upper-gif](https://imgur.com/a/AZqucKn.gif)
 
 ## Dependencies 
 ```
