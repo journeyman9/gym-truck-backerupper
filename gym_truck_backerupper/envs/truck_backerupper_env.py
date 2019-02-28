@@ -7,14 +7,13 @@ from gym.utils import seeding
 import scipy.integrate as spi
 from gym_truck_backerupper.envs.PathPlanner import PathPlanner
 import matplotlib.pyplot as plt
-import pdb
 import time
 
 try:
     import dubins
 except ImportError as e:
     raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install Dubins by running 'pip3 install Dubins')".format(e))
+        "{}. (HINT: you can install Dubins by running 'pip3 install dubins')".format(e))
 
 class TruckBackerUpperEnv(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
