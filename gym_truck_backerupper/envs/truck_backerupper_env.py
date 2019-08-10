@@ -61,7 +61,7 @@ class TruckBackerUpperEnv(gym.Env):
         
         self.L1 = 5.74
         self.L2 = 10.192
-        self.h = -0.29
+        self.h = 0.00
         self.v1x = -2.012
         self.u = 0.0
 
@@ -367,39 +367,7 @@ class TruckBackerUpperEnv(gym.Env):
         r = self.goal * 100 - self.jackknife * 100 \
             - self.out_of_bounds * 100 - self.times_up * 100 \
             - self.dist_too_large * 100 - self.angle_too_large * 100
-        ''' 
-        ## Reward Scheme A
-        r += 1.0
-        r -= 0.5 * (abs(self.s[2]) / 5.0) ** 0.4
-        r -= 0.5 * (abs(self.s[1]) / np.radians(45)) ** 0.4 
-        '''
-        '''
-        ## Reward Scheme B
-        sigma_d = 5.0 / 3.0
-        sigma_psi = np.radians(45) / 3.0
-        r += 0.5 * np.exp(-(self.s[2] - 0.0) ** 2 / (2 * (sigma_d ** 2))) + \
-             0.5 * np.exp(-(self.s[1] - 0.0) ** 2 / (2 * (sigma_psi ** 2)))
-        '''
-        '''
-        ## Reward Scheme C
-        r += np.cos(self.s[1]) - \
-             (1.0 / (1.0 + np.exp(-4.0 * (abs(self.s[2]) - 0.5 * 5.0))))
-        '''
-        ''' 
-        ## Reward Scheme D
-        J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt
-        r -= J
-        '''
-        '''
-        ## Reward Scheme E
-        sigma_d = 5.0 / 3.0
-        sigma_psi = np.radians(45) / 3.0
-        J = ((self.s.T).dot(self.Q).dot(self.s) + (a.T).dot(self.R).dot(a)) * self.dt 
-        r += 0.5 * np.exp(-(self.s[2] - 0.0) ** 2 / (2 * (sigma_d ** 2))) + \
-             0.5 * np.exp(-(self.s[1] - 0.0) ** 2 / (2 * (sigma_psi ** 2)))
-        r -= J
-        '''
-        
+         
         ## Reward Scheme F
         r += 1.0
         r -= 0.5 * (abs(self.s[2]) / 5.0) ** 0.4
