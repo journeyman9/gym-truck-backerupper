@@ -8,6 +8,7 @@ import scipy.integrate as spi
 from gym_truck_backerupper.envs.PathPlanner import PathPlanner
 import matplotlib.pyplot as plt
 import time
+import random
 
 try:
     import dubins
@@ -91,6 +92,7 @@ class TruckBackerUpperEnv(gym.Env):
         self.center = lambda x, y: np.array([[1, 0, x],
                                              [0, 1, y],
                                              [0, 0, 1]])
+        self.sn = 0
 
     def kinematic_model(self, t, x, u):
         self.u = u
@@ -271,6 +273,15 @@ class TruckBackerUpperEnv(gym.Env):
     def manual_velocity(self, v=-2.012):
         self.v1x = v
         print('Manual velocity inputted')
+
+    def add_sensor_noise(self, sn=0):
+        self.sn = sn
+        print('Added sensor noise')
+        
+    def change_control_freq(self, dt=.080):
+        self.dt = dt
+        self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
+        print('Changed Control Frequency')
 
     def manual_params(self, L2=12.2, h=-0.25):
         self.L2 = L2
@@ -620,6 +631,11 @@ class TruckBackerUpperEnv(gym.Env):
                                                        self.psi_1[i])
         self.x2_e[i] = self.r_x2[i] - self.x2[i]
         self.y2_e[i] = self.r_y2[i] - self.y2[i]
+        
+        if self.sn:
+            self.x2_e[i] += np.clip(random.gauss(0.0, self.sn), -0.3, 0.3) 
+            self.y2_e[i] += np.clip(random.gauss(0.0, self.sn), -0.3, 0.3)
+            self.psi_2_e[i] += np.clip(random.gauss(0.0, self.sn), -0.17, 0.17)
 
         self.error[i, 0:3] = self.DCM(self.psi_2[i]).dot(
                                                np.array([self.x2_e[i], 
