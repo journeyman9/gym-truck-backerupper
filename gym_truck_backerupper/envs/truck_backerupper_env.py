@@ -278,11 +278,6 @@ class TruckBackerUpperEnv(gym.Env):
         self.sn = sn
         print('Added sensor noise')
         
-    def change_control_freq(self, dt=.080):
-        self.dt = dt
-        self.num_steps = int((self.t_final - self.t0)/self.dt) + 1
-        print('Changed Control Frequency')
-
     def manual_params(self, L2=12.2, h=-0.25):
         self.L2 = L2
         self.h = h

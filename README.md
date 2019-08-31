@@ -43,7 +43,7 @@ while not done:
     env.render()
 
     # Example action from LQR, replace with RL policy
-    K = np.array([-3.8603, 12.9383, -1.000])
+    K = np.array([-24.7561, 94.6538, -7.8540])
     a = np.clip(K.dot(s), env.action_space.low, env.action_space.high)
 
     s_, r, done, info = env.step(a)
@@ -71,10 +71,10 @@ env = gym.make('TruckBackerUpper-v0')
 env.manual_velocity(-5)
 env.reset()
 ```
-The trailer geometry can be altered. Specifically, the trailer wheelbase L2 and hitch length h are modifiable. The default values are L2=10.192 m and h=-0.23 m. When changing h to a positive value, this alters the system to represent a trailer mounted by a ball hitch instead of a fifth wheel found on tractors with semi-trailers. 
+The trailer geometry can be altered. Specifically, the trailer wheelbase L2 and hitch length h are modifiable. The default values are L2=10.192 m and h=0.00 m. When changing h to a positive value, this alters the system to represent a trailer mounted by a ball hitch instead of a fifth wheel found on tractors with semi-trailers. 
 ```
 env = gym.make('TruckBackerUpper-v0')
-env.manual_params(L2=12.192, h=-0.23)
+env.manual_params(L2=12.192, h=-0.228)
 env.reset()
 ```
 
