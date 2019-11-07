@@ -13,6 +13,13 @@ numpy
 matplotlib
 python3
 ```
+NOTE: This version of the code is currently supported on Linux Ubuntu 16.04 and 18.04. The reason is because `pip install dubins` fails on Windows. The solution is to download the dubins repo, make a change in the header file for `M_PI` and build from source.
+
+```
+#ifdef WIN32
+#define _USE_MATH_DEFINES
+#endif
+```
 
 ## Installation
 ```
